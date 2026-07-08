@@ -1,7 +1,7 @@
 {
     "name": "agent-session-router",
     "displayName": "Agent Session Router",
-    "description": "Route VS Code AI agent session transcripts as Markdown files for the Agent Sessions archive pipeline",
+    "description": "Automatically archive your AI coding sessions. Discovers conversations from Copilot Chat, DeepSeek, Continue, Cline, and more — exports them as searchable Markdown files into your Agent Sessions archive.",
     "version": "0.1.0",
     "publisher": "avidullu",
     "private": true,

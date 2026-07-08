@@ -1,28 +1,31 @@
 # Agent Session Router — VS Code Extension
 
-Routes VS Code AI agent session transcripts as Markdown files for the
-[Agent Sessions](https://github.com/avidullu/agent-sessions) archive pipeline.
+Automatically archive your AI coding sessions. Discovers conversations from
+Copilot Chat, DeepSeek, Continue, Cline, and more — exports them as searchable
+Markdown files into your [Agent Sessions](https://github.com/avidullu/agent-sessions) archive.
 
 ## What It Does
 
-VS Code AI extensions (Copilot Chat, DeepSeek V4, etc.) store session
-transcripts in internal storage directories (`globalStorage`,
-`workspaceStorage`). This extension:
+Your AI coding sessions are scattered across VS Code's internal storage. This
+extension finds them all, extracts the conversations, and saves them as Markdown
+files you can search, diff, and commit to your private archive.
 
-1. **Discovers** agent sessions across all configured VS Code storage locations
-2. **Extracts** structured conversation messages (user ↔ assistant turns)
-3. **Renders** Markdown files compatible with the Agent Sessions archive format
-4. **Routes** the output to a configurable directory (default: Agent Sessions `archive/`)
-5. **Watches** for new sessions (optional auto-export)
+1. **Discover** — scan VS Code for sessions from Copilot Chat, DeepSeek, Continue, Cline, and more
+2. **Extract** — parse raw session data into structured conversation transcripts (user ↔ assistant turns with tool calls)
+3. **Export** — render as Markdown files compatible with the Agent Sessions archive format
+4. **Auto-Export** — optionally monitor for new sessions and export them automatically
+5. **Pluggable** — add support for any AI agent by dropping 2 files into `discoverers/` and `extractors/`
 
 ## Supported Agents
 
 | Agent | Status |
 |-------|--------|
-| **DeepSeek V4 for Copilot** | ✅ Discover + Extract |
-| **GitHub Copilot Chat** | ✅ Discover + Extract (beta) |
-| **Gemini (VS Code)** | 🔜 Planned |
-| **Z.AI / ZAI** | 🔜 Planned |
+| **GitHub Copilot Chat** | ✅ Discover + Extract (transcripts + tool output) |
+| **DeepSeek V4** | ✅ Discover + Extract (1,296 sessions found) |
+| **Grok (X.AI), Claude, Gemini via LM API** | ✅ Via Copilot Chat (same storage) |
+| **Continue.dev** | ✅ Discover + Extract (needs on-machine verification) |
+| **Cline** | ✅ Discover + Extract (needs on-machine verification) |
+| **Cody, Aider, Tabby, Codeium** | 🔜 Planned |
 
 ## Installation
 
