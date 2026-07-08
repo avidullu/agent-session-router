@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import { discoverAllSessions, exportAllSessions, exportSession } from './router';
+import { discoverAllSessions, exportAllSessions, exportSession, resetExportCache } from './router';
 import { getConfig } from './config';
 import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
@@ -266,6 +266,18 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStop', async () => {
             await stopWatcher();
+        })
+    );
+
+    // Reset in-memory export cache
+    context.subscriptions.push(
+        vscode.commands.registerCommand('agentSessionRouter.resetState', async () => {
+            resetExportCache();
+            channel.appendLine('Export cache cleared. Next export will re-process all sessions.');
+            channel.show();
+            vscode.window.showInformationMessage(
+                'Agent Session Router: State reset. All cached exports cleared.'
+            );
         })
     );
 }
