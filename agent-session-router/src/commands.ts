@@ -8,6 +8,63 @@ import { getConfig } from './config';
 import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
 import { startWatcher, stopWatcher } from './watcher';
+import { DiscoveredSession } from './types';
+
+// ── Discovery summary formatter ──────────────────────────────────────
+
+function displayDiscoverySummary(
+    channel: vscode.OutputChannel,
+    sessions: DiscoveredSession[],
+): void {
+    // Group by source kind
+    const groups = new Map<string, DiscoveredSession[]>();
+    for (const s of sessions) {
+        const list = groups.get(s.sourceKind) || [];
+        list.push(s);
+        groups.set(s.sourceKind, list);
+    }
+
+    const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0);
+    const kinds = groups.size;
+
+    channel.appendLine('╔══════════════════════════════════════════╗');
+    channel.appendLine('║  Agent Session Discovery — Summary        ║');
+    channel.appendLine('╚══════════════════════════════════════════╝');
+    channel.appendLine('');
+    channel.appendLine(`  Total sessions:  ${sessions.length}`);
+    channel.appendLine(`  Source kinds:    ${kinds}`);
+    channel.appendLine(`  Total data:      ${(totalSize / 1024 / 1024).toFixed(1)} MB`);
+    channel.appendLine('');
+
+    // Per-kind summary
+    for (const [kind, list] of [...groups.entries()].sort((a, b) => b[1].length - a[1].length)) {
+        const kindSize = list.reduce((sum, s) => sum + s.sizeBytes, 0);
+        const timestamps = list.map(s => s.mtimeMs).sort((a, b) => a - b);
+        const oldest = new Date(timestamps[0]).toISOString().slice(0, 10);
+        const newest = new Date(timestamps[timestamps.length - 1]).toISOString().slice(0, 10);
+        const avgSize = kindSize / list.length;
+
+        channel.appendLine(`  ┌─ ${kind}`);
+        channel.appendLine(`  │  Sessions:  ${list.length}`);
+        channel.appendLine(`  │  Size:      ${(kindSize / 1024 / 1024).toFixed(1)} MB (avg ${(avgSize / 1024).toFixed(0)} KB/session)`);
+        channel.appendLine(`  │  Span:      ${oldest} → ${newest}`);
+        channel.appendLine(`  │  Source:    ${list[0].sourceName}`);
+        channel.appendLine(`  └─ Sample:   ${list[0].filePath}`);
+        channel.appendLine('');
+    }
+
+    // Recent sessions (last 5 by modification time)
+    const recent = [...sessions].sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 5);
+    channel.appendLine('  ── Most Recent Sessions ──');
+    for (const s of recent) {
+        const when = new Date(s.mtimeMs).toISOString().slice(0, 19).replace('T', ' ');
+        channel.appendLine(`  ${when}  [${s.sourceKind}]  ${(s.sizeBytes / 1024).toFixed(0)} KB`);
+    }
+    channel.appendLine('');
+    channel.appendLine('  Run "Export All Sessions" to archive these as Markdown.');
+}
+
+// ── Command registrations ────────────────────────────────────────────
 
 export function registerCommands(context: vscode.ExtensionContext): void {
     const channel = getOutputChannel();
@@ -30,21 +87,15 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                         return;
                     }
 
-                    // Show results in output channel
+                    // Show results as a useful summary (not a raw dump)
                     channel.clear();
-                    channel.appendLine(`Discovered ${sessions.length} agent sessions:\n`);
-                    for (const s of sessions) {
-                        channel.appendLine(`  [${s.sourceKind}] ${s.sourceName}`);
-                        channel.appendLine(`    Session: ${s.sessionId}`);
-                        channel.appendLine(`    File: ${s.filePath}`);
-                        channel.appendLine(`    Size: ${(s.sizeBytes / 1024).toFixed(1)} KB`);
-                        channel.appendLine(`    Modified: ${new Date(s.mtimeMs).toISOString()}`);
-                        channel.appendLine('');
-                    }
+                    displayDiscoverySummary(channel, sessions);
                     channel.show();
 
+                    const kinds = [...new Set(sessions.map(s => s.sourceKind))].join(', ');
+                    const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0);
                     vscode.window.showInformationMessage(
-                        `Agent Session Router: Discovered ${sessions.length} sessions. See output panel for details.`
+                        `Agent Session Router: ${sessions.length} sessions across ${kinds} (${(totalSize / 1024 / 1024).toFixed(1)} MB). See output for details.`
                     );
                 }
             );
