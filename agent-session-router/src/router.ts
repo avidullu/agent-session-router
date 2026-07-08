@@ -30,16 +30,23 @@ import {
 // Auto-load all discoverers and extractors from their directories.
 // Users add new agents by dropping files into these folders — no core edits needed.
 function autoLoadModules(dir: string): void {
-    try {
-        const dirPath = path.join(__dirname, dir);
-        if (!fs.existsSync(dirPath)) return;
-        for (const file of fs.readdirSync(dirPath)) {
-            if (file.endsWith('.js') && file !== 'index.js') {
-                require(path.join(dirPath, file));
-            }
+    const dirPath = path.join(__dirname, dir);
+    if (!fs.existsSync(dirPath)) return;
+    for (const file of fs.readdirSync(dirPath)) {
+        if (!file.endsWith('.js') || file === 'index.js') continue;
+        try {
+            require(path.join(dirPath, file));
+        } catch (err) {
+            // Per-file error: one broken plugin must not disable all others.
+            // Built-in modules (copilot-chat, deepseek) failing is still a
+            // diagnosable error visible in the Output Channel.
+            const error = err instanceof Error ? err : new Error(String(err));
+            logExtractError('autoLoad', path.join(dirPath, file), dir, error);
+            console.error(
+                `[agent-session-router] Failed to load ${dir}/${file}: ${error.message}. ` +
+                `This agent source will be unavailable. Check the Output Channel for details.`
+            );
         }
-    } catch {
-        // Silently skip if directory doesn't exist (e.g. in test environments)
     }
 }
 autoLoadModules('discoverers');
