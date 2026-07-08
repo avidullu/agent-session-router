@@ -9,11 +9,15 @@
  */
 
 import * as fs from 'fs';
+import * as path from 'path';
 import { ExtractedSession, SessionMessage } from '../types';
 import { registerExtractor } from './index';
 
 function extractAider(filePath: string): ExtractedSession {
-    const metadata: Record<string, unknown> = { session_id: 'unknown', source_file: filePath };
+    const metadata: Record<string, unknown> = {
+        session_id: path.basename(path.dirname(filePath)) + '_' + path.basename(filePath, path.extname(filePath)),
+        source_file: filePath,
+    };
     const messages: SessionMessage[] = [];
 
     try {
@@ -24,10 +28,16 @@ function extractAider(filePath: string): ExtractedSession {
             for (const line of raw.split('\n').filter(l => l.trim())) {
                 try {
                     const entry = JSON.parse(line);
-                    if (entry.content) {
+                    let text = '';
+                    if (typeof entry.content === 'string') {
+                        text = entry.content;
+                    } else if (typeof entry.content === 'object' && entry.content !== null) {
+                        text = JSON.stringify(entry.content);
+                    }
+                    if (text.trim()) {
                         messages.push({
                             role: entry.role || 'message',
-                            text: entry.content,
+                            text: text.trim(),
                             timestamp: entry.timestamp,
                         });
                     }

@@ -8,11 +8,15 @@
  */
 
 import * as fs from 'fs';
+import * as path from 'path';
 import { ExtractedSession, SessionMessage } from '../types';
 import { registerExtractor } from './index';
 
 function extractCody(filePath: string): ExtractedSession {
-    const metadata: Record<string, unknown> = { session_id: 'unknown', source_file: filePath };
+    const metadata: Record<string, unknown> = {
+        session_id: path.basename(filePath, path.extname(filePath)),
+        source_file: filePath,
+    };
     const messages: SessionMessage[] = [];
 
     try {
