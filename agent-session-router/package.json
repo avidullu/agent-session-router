@@ -50,12 +50,12 @@
             },
             {
                 "command": "agentSessionRouter.watchStart",
-                "title": "Agent Session Router: Start Watching",
+                "title": "Agent Session Router: Auto-Export — Monitor for New Sessions",
                 "category": "Agent Sessions"
             },
             {
                 "command": "agentSessionRouter.watchStop",
-                "title": "Agent Session Router: Stop Watching",
+                "title": "Agent Session Router: Auto-Export — Stop Monitoring",
                 "category": "Agent Sessions"
             },
             {
