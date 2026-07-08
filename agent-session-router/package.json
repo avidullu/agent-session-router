@@ -77,26 +77,15 @@
                     "default": "",
                     "description": "Output directory for rendered Markdown session files. Defaults to the Agent Sessions archive directory if empty."
                 },
-                "agentSessionRouter.sources": {
-                    "type": "object",
-                    "default": {
-                        "copilot_chat": {
-                            "enabled": true
-                        },
-                        "deepseek_request_dump": {
-                            "enabled": true
-                        }
-                    },
-                    "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                            "enabled": {
-                                "type": "boolean",
-                                "description": "Enable or disable this agent source."
-                            }
-                        }
-                    },
-                    "description": "Per-source configuration. Add any key matching a discoverer kind to enable/disable it."
+                "agentSessionRouter.sources.copilotChat.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable Copilot Chat session discovery and export."
+                },
+                "agentSessionRouter.sources.deepseek.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable DeepSeek V4 session discovery and export."
                 },
                 "agentSessionRouter.watch.enabled": {
                     "type": "boolean",
