@@ -20,6 +20,7 @@
         "onCommand:agentSessionRouter.discover",
         "onCommand:agentSessionRouter.exportAll",
         "onCommand:agentSessionRouter.exportSession",
+        "onCommand:agentSessionRouter.diagnosticBundle",
         "onCommand:agentSessionRouter.watchStart",
         "onCommand:agentSessionRouter.watchStop",
         "onCommand:agentSessionRouter.showConfig"
@@ -40,6 +41,11 @@
             {
                 "command": "agentSessionRouter.exportSession",
                 "title": "Agent Session Router: Export Selected Session",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.diagnosticBundle",
+                "title": "Agent Session Router: Export Diagnostic Bundle",
                 "category": "Agent Sessions"
             },
             {

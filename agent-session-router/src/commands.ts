@@ -5,8 +5,12 @@
 import * as vscode from 'vscode';
 import { discoverAllSessions, exportAllSessions, exportSession } from './router';
 import { getConfig } from './config';
+import { getOutputChannel } from './logger';
+import { createDiagnosticBundle } from './diagnostics';
 
 export function registerCommands(context: vscode.ExtensionContext): void {
+    const channel = getOutputChannel();
+
     // Discover sessions
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.discover', async () => {
@@ -26,18 +30,17 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                     }
 
                     // Show results in output channel
-                    const output = vscode.window.createOutputChannel('Agent Session Router');
-                    output.clear();
-                    output.appendLine(`Discovered ${sessions.length} agent sessions:\n`);
+                    channel.clear();
+                    channel.appendLine(`Discovered ${sessions.length} agent sessions:\n`);
                     for (const s of sessions) {
-                        output.appendLine(`  [${s.sourceKind}] ${s.sourceName}`);
-                        output.appendLine(`    Session: ${s.sessionId}`);
-                        output.appendLine(`    File: ${s.filePath}`);
-                        output.appendLine(`    Size: ${(s.sizeBytes / 1024).toFixed(1)} KB`);
-                        output.appendLine(`    Modified: ${new Date(s.mtimeMs).toISOString()}`);
-                        output.appendLine('');
+                        channel.appendLine(`  [${s.sourceKind}] ${s.sourceName}`);
+                        channel.appendLine(`    Session: ${s.sessionId}`);
+                        channel.appendLine(`    File: ${s.filePath}`);
+                        channel.appendLine(`    Size: ${(s.sizeBytes / 1024).toFixed(1)} KB`);
+                        channel.appendLine(`    Modified: ${new Date(s.mtimeMs).toISOString()}`);
+                        channel.appendLine('');
                     }
-                    output.show();
+                    channel.show();
 
                     vscode.window.showInformationMessage(
                         `Agent Session Router: Discovered ${sessions.length} sessions. See output panel for details.`
@@ -66,13 +69,12 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                         return;
                     }
 
-                    const output = vscode.window.createOutputChannel('Agent Session Router');
-                    output.clear();
-                    output.appendLine(`Exported ${records.length} sessions:\n`);
+                    channel.clear();
+                    channel.appendLine(`Exported ${records.length} sessions:\n`);
                     for (const r of records) {
-                        output.appendLine(`  ✅ ${r.markdownPath}`);
+                        channel.appendLine(`  ✅ ${r.markdownPath}`);
                     }
-                    output.show();
+                    channel.show();
 
                     vscode.window.showInformationMessage(
                         `Agent Session Router: Exported ${records.length} sessions to Markdown.`
@@ -142,11 +144,62 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.showConfig', async () => {
             const config = getConfig();
-            const output = vscode.window.createOutputChannel('Agent Session Router');
-            output.clear();
-            output.appendLine('Current Configuration:');
-            output.appendLine(JSON.stringify(config, null, 2));
-            output.show();
+            channel.clear();
+            channel.appendLine('Current Configuration:');
+            channel.appendLine(JSON.stringify(config, null, 2));
+            channel.show();
+        })
+    );
+
+    // Export diagnostic bundle
+    context.subscriptions.push(
+        vscode.commands.registerCommand('agentSessionRouter.diagnosticBundle', async () => {
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Agent Session Router: Creating diagnostic bundle...',
+                    cancellable: false,
+                },
+                async (_progress) => {
+                    try {
+                        const bundle = await createDiagnosticBundle();
+                        channel.clear();
+                        channel.appendLine('Diagnostic Bundle Created');
+                        channel.appendLine('═══════════════════════════');
+                        channel.appendLine(`Location: ${bundle.zipPath}`);
+                        channel.appendLine(`Diagnostics entries: ${bundle.summary.diagnosticsLines}`);
+                        channel.appendLine(`Source samples: ${bundle.summary.sourceSamples}`);
+                        channel.appendLine(`Config included: ${bundle.summary.configIncluded}`);
+                        channel.appendLine(`Total size: ${(bundle.summary.totalSizeBytes / 1024).toFixed(1)} KB`);
+                        channel.appendLine('');
+                        channel.appendLine('Share this folder with your AI agent or attach to a GitHub issue:');
+                        channel.appendLine(`  ${bundle.zipPath}`);
+                        channel.appendLine('');
+                        channel.appendLine('To inspect errors:');
+                        channel.appendLine(`  cat "${bundle.zipPath}/diagnostics.jsonl" | jq 'select(.level=="error")'`);
+                        channel.show();
+
+                        // Offer to reveal in file explorer
+                        const action = await vscode.window.showInformationMessage(
+                            `Diagnostic bundle created (${(bundle.summary.totalSizeBytes / 1024).toFixed(1)} KB). Reveal in Explorer?`,
+                            'Reveal',
+                            'Copy Path',
+                        );
+                        if (action === 'Reveal') {
+                            vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(bundle.zipPath));
+                        } else if (action === 'Copy Path') {
+                            vscode.env.clipboard.writeText(bundle.zipPath);
+                        }
+                    } catch (err) {
+                        const error = err instanceof Error ? err : new Error(String(err));
+                        channel.appendLine(`ERROR creating diagnostic bundle: ${error.message}`);
+                        channel.show();
+                        vscode.window.showErrorMessage(
+                            `Agent Session Router: Failed to create diagnostic bundle. ${error.message}`
+                        );
+                    }
+                }
+            );
         })
     );
 

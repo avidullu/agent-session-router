@@ -15,6 +15,17 @@ import { getExtractor } from './extractors/index';
 import { renderMarkdown } from './renderers/markdown';
 import { sha256File, slugify, isoNow, canReuseRecord } from './utils';
 import { getConfig, Config } from './config';
+import {
+    logDiscover,
+    logExtractStart,
+    logExtractResult,
+    logExtractError,
+    logRender,
+    logWrite,
+    logWriteError,
+    logSkip,
+    logExportSummary,
+} from './logger';
 
 // Import discoverers and extractors to trigger registration side-effects
 import './discoverers/deepseek';
@@ -59,6 +70,10 @@ export async function discoverAllSessions(
         progress.report({ message: `Discovering ${kind} sessions...` });
 
         for await (const session of discoverer()) {
+            logDiscover(session.sourceKind, session.filePath, session.sessionId, {
+                sizeBytes: session.sizeBytes,
+                mtimeMs: session.mtimeMs,
+            });
             allSessions.push(session);
         }
     }
@@ -72,25 +87,54 @@ export async function exportSession(
 ): Promise<ExportRecord | null> {
     const extractor = getExtractor(session.sourceKind);
     if (!extractor) {
-        console.warn(`[agent-session-router] No extractor for kind: ${session.sourceKind}`);
+        logSkip(session.sourceKind, session.filePath, session.sessionId,
+            `No extractor registered for kind: ${session.sourceKind}`);
         return null;
     }
 
     // Check cache for unchanged files
     const cached = exportCache.get(session.filePath) ?? null;
     if (cached && canReuseRecord(cached, session.sizeBytes, session.mtimeMs)) {
+        logSkip(session.sourceKind, session.filePath, session.sessionId,
+            'Unchanged since last export (cached)');
         return cached;
     }
 
     // Extract
-    const extracted = extractor(session.filePath);
+    const extractDone = logExtractStart(session.sourceKind, session.filePath, session.sessionId, session.sizeBytes);
+    let extracted;
+    try {
+        extracted = extractor(session.filePath);
+    } catch (err) {
+        extractDone();
+        const error = err instanceof Error ? err : new Error(String(err));
+        let snippet: string | undefined;
+        try {
+            snippet = fs.readFileSync(session.filePath, 'utf-8').slice(0, 500);
+        } catch { /* file may not be readable */ }
+        logExtractError(session.sourceKind, session.filePath, session.sessionId, error, snippet);
+        return null;
+    }
+    extractDone();
+
     if (!extracted.messages.length) {
-        console.warn(`[agent-session-router] No messages extracted from: ${session.filePath}`);
+        logSkip(session.sourceKind, session.filePath, session.sessionId,
+            'No messages extracted (empty session)');
         return null;
     }
 
+    logExtractResult(session.sourceKind, session.filePath, session.sessionId,
+        extracted.messages.length, 0);
+
     // Compute digest
-    const digest = sha256File(session.filePath);
+    let digest: string;
+    try {
+        digest = sha256File(session.filePath);
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        logExtractError(session.sourceKind, session.filePath, session.sessionId, error);
+        return null;
+    }
 
     // Determine output path
     const sourceDir = slugify(session.sourceName);
@@ -107,12 +151,21 @@ export async function exportSession(
         sourceModifiedAt: modifiedDate.toISOString().replace(/\.\d{3}Z$/, 'Z'),
     });
 
+    logRender(session.sourceKind, session.sessionId, markdownPath, extracted.messages.length);
+
     // Write
     const dir = path.dirname(markdownPath);
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(markdownPath, markdown, 'utf-8');
+    try {
+        fs.writeFileSync(markdownPath, markdown, 'utf-8');
+        logWrite(session.sourceKind, session.sessionId, markdownPath, Buffer.byteLength(markdown, 'utf-8'));
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        logWriteError(session.sourceKind, session.sessionId, markdownPath, error);
+        return null;
+    }
 
     const record: ExportRecord = {
         sourceName: session.sourceName,
@@ -147,6 +200,10 @@ export async function exportAllSessions(
     const records: ExportRecord[] = [];
     const total = sessions.length;
     let completed = 0;
+    let exported = 0;
+    let skipped = 0;
+    let failed = 0;
+    const startTime = Date.now();
 
     for (const session of sessions) {
         progress.report({
@@ -157,9 +214,17 @@ export async function exportAllSessions(
         const record = await exportSession(session, outputDir);
         if (record) {
             records.push(record);
+            exported++;
+        } else {
+            // Check if it was skipped (cached) or failed
+            // The logger already recorded the reason
+            failed++;
         }
         completed++;
     }
+
+    const durationMs = Date.now() - startTime;
+    logExportSummary(total, exported, skipped, failed, durationMs);
 
     return records;
 }

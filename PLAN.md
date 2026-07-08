@@ -1,5 +1,13 @@
 # VS Code Agent Session Router — Architecture & Implementation Plan
 
+> **🏁 CHECKPOINT 1 — 2026-07-08**  
+> Phase 1 (Foundation) complete. Extension scaffold built, TypeScript compiles clean.  
+> DeepSeek + Copilot Chat discoverers/extractors implemented.  
+> Structured logging + diagnostic bundle export operational.  
+> ADR-001 accepted.  
+> **Next**: Phase 2 (Copilot enhanced extractor) → Phase 3 (Watcher) → Phase 5 (Aggregator agents).  
+> Repo: <https://github.com/avidullu/agent-session-router>
+
 ## 1. Problem Statement
 
 The **Agent Sessions** repo (`Projects/Agent Sessions`) is a Python-based private
