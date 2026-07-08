@@ -1,5 +1,13 @@
 # VS Code Agent Session Router — Architecture & Implementation Plan
 
+> **🏁 CHECKPOINT 1 — 2026-07-08**  
+> Phase 1 (Foundation) complete. Extension scaffold built, TypeScript compiles clean.  
+> DeepSeek + Copilot Chat discoverers/extractors implemented.  
+> Structured logging + diagnostic bundle export operational.  
+> ADR-001 accepted.  
+> **Next**: Phase 2 (Copilot enhanced extractor) → Phase 3 (Watcher) → Phase 5 (Aggregator agents).  
+> Repo: <https://github.com/avidullu/agent-session-router>
+
 ## 1. Problem Statement
 
 The **Agent Sessions** repo (`Projects/Agent Sessions`) is a Python-based private
@@ -81,15 +89,108 @@ suite of helper tools for processing agent session handoffs and transcripts.
          └─────────────────────────┘
 ```
 
-### 2.3 Source agents to support (Phase 1)
+### 2.3 Agent taxonomy — four categories
 
-| Agent | Storage Location | Format | Status |
-|-------|-----------------|--------|--------|
-| **Copilot Chat** | `workspaceStorage/*/GitHub.copilot-chat/debug-logs/` | JSONL (main.jsonl + models.json) | Inventory-only today |
-| **Copilot Chat** | `workspaceStorage/*/GitHub.copilot-chat/chat-session-resources/` | Per-turn content files | New discovery |
-| **DeepSeek V4** | `globalStorage/vizards.deepseek-v4-for-copilot/request-dumps/` | JSON request/response pairs | Basic extractor exists |
-| **Gemini (VS Code)** | (to be discovered) | (TBD) | Future |
-| **Z.AI / ZAI** | `extensions/ltmoerdani.zai-copilot-chat-*` | (TBD) | Future |
+The extension must handle a diverse ecosystem of AI coding agents. They fall into
+four categories based on WHERE and HOW they store session data:
+
+#### Category A: Native VS Code Extensions (persist to VS Code storage)
+
+These are first-class VS Code extensions that use VS Code's storage APIs.
+Session data lives in `globalStorage` or `workspaceStorage`.
+
+| Agent | Extension ID | Storage Location | Format | Status |
+|-------|-------------|-----------------|--------|--------|
+| **Copilot Chat** | `github.copilot-chat` | `workspaceStorage/*/github.copilot-chat/debug-logs/` | JSONL | ✅ Discoverer exists |
+| **Copilot Chat** | `github.copilot-chat` | `workspaceStorage/*/github.copilot-chat/chat-session-resources/` | Per-turn `.txt` | 🔧 Phase 2 |
+| **DeepSeek V4** | `vizards.deepseek-v4-for-copilot` | `globalStorage/vizards.deepseek-v4-for-copilot/request-dumps/` | JSON | ✅ Full support |
+| **Z.AI / ZAI** | `ltmoerdani.zai-copilot-chat` | Reuses Copilot Chat storage (model-provider fork) | JSONL | ✅ Via copilot_chat |
+| **OpenAI ChatGPT** | `openai.chatgpt` | Uses bundled Codex CLI → `~/.codex/sessions/` | JSONL | ✅ Via Codex extractor |
+| **Gemini (VS Code)** | (TBD) | (TBD) | (TBD) | 🔮 Research needed |
+
+#### Category B: Aggregator-Backed VS Code Extensions
+
+These are VS Code extensions that connect to multiple LLM backends (Ollama,
+OpenRouter, LM Studio, etc.). The backend is irrelevant to session storage —
+the extension itself persists sessions.
+
+| Agent | Extension ID | Backends | Storage Location | Format | Status |
+|-------|-------------|----------|-----------------|--------|--------|
+| **Continue** | `continue.continue` | Ollama, OpenAI, Anthropic, OpenRouter, LM Studio, etc. | `~/.continue/sessions/` | JSON | 🔧 Planned |
+| **Cline** | `saoudrizwan.claude-dev` | Ollama, OpenAI, Anthropic, OpenRouter, etc. | `globalStorage/saoudrizwan.claude-dev/` | JSON/JSONL | 🔧 Planned |
+| **Cody** | `sourcegraph.cody` | Sourcegraph + BYOK | `globalStorage/sourcegraph.cody/` | Custom | 🔧 Planned |
+| **Roo Cline** | `rooveterinaryinc.roo-cline` | Ollama, OpenAI, Anthropic, etc. | `globalStorage/rooveterinaryinc.roo-cline/` | JSON/JSONL | 🔧 Planned |
+| **Aider (via VS Code)** | `aider.aider-vscode` | Ollama, OpenAI, Anthropic, etc. | Project `.aider*` files | Markdown/JSON | 🔧 Planned |
+| **Tabby** | `tabbyml.tabby` | Self-hosted | `globalStorage/tabbyml.tabby/` | Custom | 🔧 Planned |
+| **Codeium** | `codeium.codeium` | Proprietary | `globalStorage/codeium.codeium/` | Custom | 🔧 Planned |
+| **Augment** | `augmentcode.augment` | Proprietary | `globalStorage/augmentcode.augment/` | Custom | 🔧 Planned |
+| **Supermaven** | `supermaven.supermaven` | Proprietary | `globalStorage/supermaven.supermaven/` | Custom | 🔧 Planned |
+| **Amazon Q** | `amazonwebservices.amazon-q-vscode` | AWS Bedrock | `globalStorage/amazonwebservices.amazon-q-vscode/` | Custom | 🔧 Planned |
+
+#### Category C: Model Servers & API Aggregators (NOT VS Code extensions)
+
+These do NOT store chat sessions themselves. They are backends that Category B
+extensions connect to. They are listed here for completeness — the
+agent-session-router does NOT interact with them directly.
+
+| Server | Type | Notes |
+|--------|------|-------|
+| **Ollama** | Local model server | Runs Llama, Mistral, Qwen, DeepSeek, etc. locally. No session storage. |
+| **LM Studio** | Local model server | GUI + API for local models. No session storage. |
+| **vLLM** | Local model server | High-throughput serving. No session storage. |
+| **LocalAI** | Local model server | OpenAI-compatible local API. No session storage. |
+| **OpenRouter** | API aggregator | Unified API for 200+ models. No session storage. |
+| **Groq** | API aggregator | Fast inference API. No session storage. |
+| **Together AI** | API aggregator | Open-source model API. No session storage. |
+| **Fireworks AI** | API aggregator | Fast model serving API. No session storage. |
+| **DeepInfra** | API aggregator | Hosted open-source models. No session storage. |
+| **AWS Bedrock** | API aggregator | Managed foundation models. No session storage. |
+| **Google Vertex AI** | API aggregator | Managed ML platform. No session storage. |
+
+#### Category D: Terminal/CLI Tools (persist outside VS Code)
+
+These are standalone CLI tools used alongside VS Code. Sessions are stored
+independently of VS Code. Already covered by the Agent Sessions Python tool.
+
+| Tool | Storage Location | Format | Agent Sessions Status |
+|------|-----------------|--------|----------------------|
+| **Claude Code** | `~/.claude/projects/{project}/*.jsonl` | JSONL | ✅ Supported |
+| **Codex CLI** | `~/.codex/sessions/` | JSONL | ✅ Supported |
+| **Gemini CLI** | `~/.gemini/antigravity/brain/` | JSONL | ✅ Supported |
+| **Grok CLI** | `~/.grok/sessions/` | JSONL | ✅ Supported |
+| **Aider CLI** | Project `.aider*` files | Markdown/JSON | 🔧 Planned (Agent Sessions) |
+| **Qwen CLI** | (TBD) | (TBD) | 🔮 Research needed |
+| **Kimi CLI** | (TBD) | (TBD) | 🔮 Research needed |
+
+### 2.4 Why aggregators are transparent to the architecture
+
+The key insight: **model backends (Ollama, OpenRouter, LM Studio) are just API
+endpoints**. They do not persist chat sessions. The VS Code extension that uses
+them (Continue, Cline, etc.) is responsible for session storage.
+
+This means the agent-session-router needs discoverers/extractors for the VS Code
+EXTENSIONS (Category B), not for the backends (Category C). Once an extension's
+storage format is understood, the router handles it identically regardless of
+which backend model was used.
+
+```
+┌──────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Ollama       │     │  Continue.dev     │     │  agent-session- │
+│  (backend)    │◄────│  (VS Code ext)    │────►│  router          │
+│  No storage   │     │  ~/.continue/     │     │  → archive/*.md │
+└──────────────┘     └──────────────────┘     └─────────────────┘
+
+┌──────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  OpenRouter   │     │  Cline            │     │  agent-session- │
+│  (backend)    │◄────│  (VS Code ext)    │────►│  router          │
+│  No storage   │     │  globalStorage/   │     │  → archive/*.md │
+└──────────────┘     └──────────────────┘     └─────────────────┘
+```
+
+Adding a new aggregator-backed extension always follows the same 3-step recipe:
+1. **Install** the extension + run a test session
+2. **Locate** its session storage (check `globalStorage/{id}/`, `~/.{name}/`)
+3. **Write** a discoverer + extractor (~50 lines of TypeScript each)
 
 ---
 
@@ -115,11 +216,17 @@ extensions/
 │   │   ├── discoverers/
 │   │   │   ├── index.ts           # Discovery registry
 │   │   │   ├── copilot-chat.ts    # Copilot Chat session discovery
-│   │   │   └── deepseek.ts        # DeepSeek request-dump discovery
+│   │   │   ├── deepseek.ts        # DeepSeek request-dump discovery
+│   │   │   ├── continue.ts        # Continue.dev sessions (Phase 5)
+│   │   │   ├── cline.ts           # Cline task history (Phase 5)
+│   │   │   └── cody.ts            # Cody chat history (Phase 5)
 │   │   ├── extractors/
 │   │   │   ├── index.ts           # Extractor registry
 │   │   │   ├── copilot-chat.ts    # Copilot JSONL → messages
-│   │   │   └── deepseek.ts        # DeepSeek JSON → messages
+│   │   │   ├── deepseek.ts        # DeepSeek JSON → messages
+│   │   │   ├── continue.ts        # Continue JSON → messages (Phase 5)
+│   │   │   ├── cline.ts           # Cline JSONL → messages (Phase 5)
+│   │   │   └── cody.ts            # Cody format → messages (Phase 5)
 │   │   ├── renderers/
 │   │   │   ├── index.ts           # Renderer registry
 │   │   │   └── markdown.ts        # Markdown renderer (matching Agent Sessions format)
@@ -188,8 +295,24 @@ extensions/
   "agentSessionRouter.enabled": true,
   "agentSessionRouter.outputDir": "~/Projects/Agent Sessions/archive",
   "agentSessionRouter.sources": {
+    // Category A: Native VS Code Extensions
     "copilotChat": { "enabled": true },
-    "deepseek": { "enabled": true }
+    "deepseek": { "enabled": true },
+    "openaiChatGPT": { "enabled": true },
+    "gemini": { "enabled": false },
+    // Category A forks (share storage with parent)
+    "zai": { "enabled": true, "note": "Z.AI reuses Copilot Chat storage" },
+    // Category B: Aggregator-Backed Extensions
+    "continue": { "enabled": false },
+    "cline": { "enabled": false },
+    "cody": { "enabled": false },
+    "rooCline": { "enabled": false },
+    "aiderVscode": { "enabled": false },
+    "tabby": { "enabled": false },
+    "codeium": { "enabled": false },
+    "augment": { "enabled": false },
+    "supermaven": { "enabled": false },
+    "amazonQ": { "enabled": false }
   },
   "agentSessionRouter.watch": {
     "enabled": false,
@@ -238,7 +361,34 @@ Enhanced extractor should:
 2. Separate system prompt, user messages, and assistant responses
 3. Include tool call/result pairs as structured sections
 
-### Phase 5: Suite Expansion
+### Phase 5: Aggregator-Backed Agent Support
+
+**Goal**: Add discoverers and extractors for all major aggregator-backed VS Code
+extensions (Category B). Each follows the same recipe: install → locate storage →
+write discoverer + extractor.
+
+**Priority order** (by popularity + likelihood of disk persistence):
+
+| Priority | Agent | Why First |
+|----------|-------|-----------|
+| P1 | **Continue.dev** | Most popular open-source AI extension; known to persist to `~/.continue/sessions/` as JSON |
+| P1 | **Cline** | Fast-growing; persists task history to globalStorage |
+| P2 | **Cody** | Sourcegraph's assistant; enterprise adoption |
+| P2 | **Aider (VS Code)** | Terminal tool with VS Code integration; `.aider*` files in project dir |
+| P3 | **Tabby** | Self-hosted; growing corporate adoption |
+| P3 | **Codeium** | Popular free-tier alternative to Copilot |
+| P3 | **Amazon Q** | AWS ecosystem integration |
+
+**Validation approach per agent**:
+1. Install the extension from VS Code Marketplace
+2. Run a test coding session with a known prompt
+3. Locate session files: `globalStorage/{id}/`, `~/.{name}/`, workspace dirs
+4. Document the storage format (JSON, JSONL, custom)
+5. Implement discoverer + extractor
+6. Test round-trip: extract → render → verify Markdown
+7. Add to configuration schema as a toggleable source
+
+### Phase 6: Suite Expansion
 
 Future helper tools that share infrastructure with the router:
 
@@ -313,10 +463,13 @@ extension could also write a companion index entry.
 3. ✅ Extension renders Markdown compatible with Agent Sessions format
 4. ✅ Extension writes output to configurable directory
 5. ✅ Copilot Chat sessions are discoverable and extractable
-6. ✅ Watcher auto-exports new sessions
-7. ✅ Agent Sessions Python tool can consume extension-produced Markdown
+6. 🔧 Continue.dev sessions discoverable and extractable (Phase 5)
+7. 🔧 Cline sessions discoverable and extractable (Phase 5)
+8. 🔧 Watcher auto-exports new sessions (Phase 3)
+9. 🔧 At least 3 aggregator-backed agents fully supported (Phase 5)
+10. 🔧 Agent Sessions Python tool can consume extension-produced Markdown
    without modification (verified by `python tools/agent_archive.py export`)
-8. ✅ Extension published to VS Code Marketplace (or private `.vsix` distribution)
+11. 🔧 Extension published as private `.vsix` for distribution
 
 ---
 
@@ -335,11 +488,12 @@ extension could also write a companion index entry.
 
 | Phase | Effort | Dependencies |
 |-------|--------|-------------|
-| Phase 1: Foundation | 3-5 days | TypeScript, VS Code Extension API |
+| Phase 1: Foundation | ✅ Done | TypeScript, VS Code Extension API |
 | Phase 2: Copilot Extractor | 3-4 days | Understanding Copilot session format |
 | Phase 3: Watcher | 1-2 days | chokidar or vscode FileSystemWatcher |
 | Phase 4: DeepSeek Enhanced | 2-3 days | DeepSeek dump format analysis |
-| Phase 5: Suite Expansion | Ongoing | Prior phases complete |
+| Phase 5: Aggregator Agents | ~1 day/agent | Installing + reverse-engineering each extension's storage |
+| Phase 6: Suite Expansion | Ongoing | Prior phases complete |
 
 ---
 
@@ -355,3 +509,19 @@ extension could also write a companion index entry.
 4. **Session privacy**: Agent sessions contain file contents, credentials, and
    sensitive data. The extension must not accidentally expose these. Markdown
    output goes to a private repo only.
+5. **Aggregator extension storage stability**: Do extensions like Continue/Cline
+   guarantee stable on-disk formats, or do they change between versions? Need
+   to pin tested versions and detect format changes.
+6. **Which aggregator extensions ACTUALLY persist sessions to disk?** Some may
+   keep everything in-memory (like Z.AI appears to). Need to verify per-extension
+   before writing discoverers. The table in §2.3 marks known persistence;
+   agents marked 🔮 need on-machine verification.
+7. **Ollama/Kimi/Qwen as first-class agents**: If a native VS Code extension
+   ships for Ollama, Kimi, or Qwen (independent of aggregators like Continue),
+   they would be Category A agents and follow the standard discoverer+extractor
+   recipe.
+8. **Conflict resolution**: If both the Agent Sessions Python tool AND the
+   VS Code extension export the same session (e.g., Codex via both paths),
+   the idempotent SHA-256 + size+mtime cache prevents duplication, but the
+   metadata `source_name` may differ. Should the extension adopt the same
+   `source_name` convention as the Python tool's `default_sources.toml`?

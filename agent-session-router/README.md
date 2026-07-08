@@ -53,9 +53,56 @@ Open the Command Palette (`Ctrl+Shift+P`) and type "Agent Session Router":
 | **Discover Sessions** | Scan and list all discoverable agent sessions |
 | **Export All Sessions** | Export all discovered sessions to Markdown |
 | **Export Selected Session** | Pick a specific session file to export |
+| **Export Diagnostic Bundle** | Package logs + source samples for debugging |
 | **Start Watching** | Begin auto-exporting sessions as they complete |
 | **Stop Watching** | Stop the auto-export watcher |
 | **Show Configuration** | Display current extension settings |
+
+## Diagnostics & Debugging
+
+When an export fails or produces unexpected output, the extension provides
+structured diagnostics to help you (or your AI agent) diagnose the issue.
+
+### Output Channel
+
+All operations log to the **Agent Session Router** output channel
+(`View` → `Output` → select "Agent Session Router" from the dropdown). This shows
+human-readable timestamps, categories, and results.
+
+### Diagnostic JSONL
+
+Machine-readable diagnostics are written to:
+```
+{outputDir}/.router/diagnostics.jsonl
+```
+
+Each line is a JSON object with:
+- `timestamp`, `level` (debug/info/warn/error), `category`
+- `sourceKind`, `sourceFile`, `sessionId`
+- `durationMs`, `messageCount`, `sizeBytes`, `digest`
+- `error.name`, `error.message`, `error.stack`, `error.sourceSnippet` (for failures)
+
+Query with `jq`:
+```bash
+# Show all errors
+cat diagnostics.jsonl | jq 'select(.level=="error")'
+
+# Show extraction failures with source snippets
+cat diagnostics.jsonl | jq 'select(.level=="error" and .error.sourceSnippet)'
+
+# Show export summary
+cat diagnostics.jsonl | jq 'select(.category=="summary")'
+```
+
+### Diagnostic Bundle
+
+Run **Export Diagnostic Bundle** from the Command Palette to package:
+- `diagnostics.jsonl` — the full log
+- `config.json` — current extension configuration (redacted)
+- `sources/` — up to 10 raw source file snippets from failed extractions
+- `summary.txt` — human-readable overview
+
+Share the bundle folder with your AI agent or attach to a GitHub issue.
 
 ## Configuration
 
@@ -136,11 +183,15 @@ npm test
 
 ```
 agent-session-router/
+├── docs/
+│   └── ADR-001-agent-session-routing.md  # Architecture Decision Record
 ├── src/
 │   ├── extension.ts          # Entry point
 │   ├── config.ts             # Extension configuration
 │   ├── types.ts              # Shared types
 │   ├── utils.ts              # Hashing, paths, timestamps
+│   ├── logger.ts             # Structured dual-channel logger
+│   ├── diagnostics.ts        # Diagnostic bundle exporter
 │   ├── commands.ts           # VS Code command registrations
 │   ├── router.ts             # Orchestrator pipeline
 │   ├── watcher.ts            # Filesystem watcher
