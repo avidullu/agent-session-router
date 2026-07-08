@@ -21,11 +21,33 @@ files you can search, diff, and commit to your private archive.
 | Agent | Status |
 |-------|--------|
 | **GitHub Copilot Chat** | ✅ Discover + Extract (transcripts + tool output) |
-| **DeepSeek V4** | ✅ Discover + Extract (1,296 sessions found) |
-| **Grok (X.AI), Claude, Gemini via LM API** | ✅ Via Copilot Chat (same storage) |
-| **Continue.dev** | ✅ Discover + Extract (needs on-machine verification) |
-| **Cline** | ✅ Discover + Extract (needs on-machine verification) |
-| **Cody, Aider, Tabby, Codeium** | 🔜 Planned |
+| **DeepSeek V4** | ✅ Discover + Extract |
+| **Grok, Claude, Gemini (LM API)** | ✅ Via Copilot Chat (same storage) |
+| **Continue.dev** | ✅ Discover + Extract |
+| **Cline** | ✅ Discover + Extract |
+| **Cody (Sourcegraph)** | ✅ Discover + Extract |
+| **Aider (VS Code)** | ✅ Discover + Extract (`.aider*` files) |
+| **Tabby** | ✅ Discover + Extract |
+| **Codeium** | ✅ Discover + Extract |
+| **Amazon Q** | ✅ Discover + Extract |
+| **Z.AI / ZAI** | ✅ Via Copilot Chat (model-provider fork) |
+| **OpenAI ChatGPT** | ✅ Via Codex CLI extractor |
+
+> New agents are auto-discovered on the next scan. Install an extension,
+> use it, and its sessions appear automatically — no configuration needed.
+
+## Setup & Integration
+
+See **[SETUP.md](SETUP.md)** for full setup instructions, daily workflow
+options, and how the extension integrates with the
+[Agent Sessions](https://github.com/avidullu/agent-sessions) Python archive tool.
+
+Quick start:
+1. Install the extension (`.vsix` or build from source)
+2. Set `agentSessionRouter.outputDir` to your Agent Sessions `archive/` directory
+3. Run **Export All Sessions** from the Command Palette
+4. Run `python tools/agent_archive.py export --all` in the Agent Sessions repo
+5. Your VS Code sessions are now indexed alongside Codex, Claude, Gemini, and Grok
 
 ## Installation
 
