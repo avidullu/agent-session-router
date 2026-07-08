@@ -27,11 +27,23 @@ import {
     logExportSummary,
 } from './logger';
 
-// Import discoverers and extractors to trigger registration side-effects
-import './discoverers/deepseek';
-import './discoverers/copilot-chat';
-import './extractors/deepseek';
-import './extractors/copilot-chat';
+// Auto-load all discoverers and extractors from their directories.
+// Users add new agents by dropping files into these folders — no core edits needed.
+function autoLoadModules(dir: string): void {
+    try {
+        const dirPath = path.join(__dirname, dir);
+        if (!fs.existsSync(dirPath)) return;
+        for (const file of fs.readdirSync(dirPath)) {
+            if (file.endsWith('.js') && file !== 'index.js') {
+                require(path.join(dirPath, file));
+            }
+        }
+    } catch {
+        // Silently skip if directory doesn't exist (e.g. in test environments)
+    }
+}
+autoLoadModules('discoverers');
+autoLoadModules('extractors');
 
 /** In-memory cache of previous export records (keyed by filePath). */
 const exportCache = new Map<string, ExportRecord>();
@@ -59,9 +71,12 @@ export async function discoverAllSessions(
     const config = getConfig();
     const allSessions: DiscoveredSession[] = [];
 
-    const kindsToDiscover: string[] = [];
-    if (config.sources.deepseek.enabled) kindsToDiscover.push('deepseek_request_dump');
-    if (config.sources.copilotChat.enabled) kindsToDiscover.push('copilot_chat');
+    // Discover all registered kinds that are enabled in config.
+    // Users add new agents by registering a discoverer — config automatically picks it up.
+    const { knownKinds } = require('./discoverers/index') as { knownKinds: () => string[] };
+    const kindsToDiscover = knownKinds().filter(
+        kind => config.sources[kind]?.enabled !== false
+    );
 
     for (const kind of kindsToDiscover) {
         const discoverer = getDiscoverer(kind);

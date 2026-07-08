@@ -22,10 +22,9 @@ export interface WatchConfig {
 export interface Config {
     enabled: boolean;
     outputDir: string;
-    sources: {
-        copilotChat: SourceConfig;
-        deepseek: SourceConfig;
-    };
+    /** Source kinds → config. Key is the discoverer kind (e.g. 'copilot_chat', 'deepseek_request_dump').
+     *  New agents register with a kind and are automatically picked up — no core edits needed. */
+    sources: Record<string, SourceConfig>;
     watch: WatchConfig;
     maxSessionAge: string;
 }
@@ -35,8 +34,8 @@ const DEFAULT_CONFIG: Config = {
     enabled: true,
     outputDir: '',
     sources: {
-        copilotChat: { enabled: true },
-        deepseek: { enabled: true },
+        copilot_chat: { enabled: true },
+        deepseek_request_dump: { enabled: true },
     },
     watch: {
         enabled: false,
@@ -49,18 +48,21 @@ export function getConfig(): Config {
     if (!vscodeApi) {
         return { ...DEFAULT_CONFIG };
     }
-    const cfg = vscodeApi.workspace.getConfiguration('agentSessionRouter');
+    const cfg: any = vscodeApi.workspace.getConfiguration('agentSessionRouter');
+    // Read sources as a generic object — any key works (pluggable)
+    const sourcesConfig: Record<string, any> = cfg.get('sources', {}) || {};
+    const sources: Record<string, SourceConfig> = {};
+    for (const [key, val] of Object.entries(sourcesConfig)) {
+        if (val && typeof val === 'object' && 'enabled' in val) {
+            sources[key] = { enabled: (val as any).enabled !== false };
+        } else if (val && typeof val === 'object') {
+            sources[key] = { enabled: true };
+        }
+    }
     return {
         enabled: cfg.get('enabled', true),
         outputDir: cfg.get('outputDir', ''),
-        sources: {
-            copilotChat: {
-                enabled: cfg.get('sources.copilotChat.enabled', true),
-            },
-            deepseek: {
-                enabled: cfg.get('sources.deepseek.enabled', true),
-            },
-        },
+        sources,
         watch: {
             enabled: cfg.get('watch.enabled', false),
             debounceMs: cfg.get('watch.debounceMs', 5000),
