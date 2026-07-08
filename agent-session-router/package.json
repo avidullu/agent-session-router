@@ -1,0 +1,121 @@
+{
+    "name": "agent-session-router",
+    "displayName": "Agent Session Router",
+    "description": "Route VS Code AI agent session transcripts as Markdown files for the Agent Sessions archive pipeline",
+    "version": "0.1.0",
+    "publisher": "avidullu",
+    "private": true,
+    "license": "UNLICENSED",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/avidullu/agent-session-router"
+    },
+    "engines": {
+        "vscode": "^1.90.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onCommand:agentSessionRouter.discover",
+        "onCommand:agentSessionRouter.exportAll",
+        "onCommand:agentSessionRouter.exportSession",
+        "onCommand:agentSessionRouter.watchStart",
+        "onCommand:agentSessionRouter.watchStop",
+        "onCommand:agentSessionRouter.showConfig"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "agentSessionRouter.discover",
+                "title": "Agent Session Router: Discover Sessions",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.exportAll",
+                "title": "Agent Session Router: Export All Sessions",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.exportSession",
+                "title": "Agent Session Router: Export Selected Session",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.watchStart",
+                "title": "Agent Session Router: Start Watching",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.watchStop",
+                "title": "Agent Session Router: Stop Watching",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.showConfig",
+                "title": "Agent Session Router: Show Configuration",
+                "category": "Agent Sessions"
+            }
+        ],
+        "configuration": {
+            "title": "Agent Session Router",
+            "properties": {
+                "agentSessionRouter.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable or disable the Agent Session Router extension."
+                },
+                "agentSessionRouter.outputDir": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Output directory for rendered Markdown session files. Defaults to the Agent Sessions archive directory if empty."
+                },
+                "agentSessionRouter.sources.copilotChat.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable Copilot Chat session discovery and export."
+                },
+                "agentSessionRouter.sources.deepseek.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable DeepSeek V4 session discovery and export."
+                },
+                "agentSessionRouter.watch.enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Automatically watch for new sessions and export them."
+                },
+                "agentSessionRouter.watch.debounceMs": {
+                    "type": "number",
+                    "default": 5000,
+                    "description": "Debounce delay in milliseconds before exporting a newly detected session."
+                },
+                "agentSessionRouter.maxSessionAge": {
+                    "type": "string",
+                    "default": "90d",
+                    "description": "Maximum age of sessions to export (e.g., '30d', '7d', '24h'). Leave empty for no limit."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "lint": "eslint src --ext ts",
+        "pretest": "npm run compile",
+        "test": "node ./out/test/runTest.js"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.90.0",
+        "@types/node": "^20.0.0",
+        "@typescript-eslint/eslint-plugin": "^7.0.0",
+        "@typescript-eslint/parser": "^7.0.0",
+        "eslint": "^8.0.0",
+        "typescript": "^5.4.0"
+    },
+    "dependencies": {
+        "chokidar": "^3.6.0"
+    }
+}

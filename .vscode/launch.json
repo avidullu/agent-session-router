@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/agent-session-router"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/agent-session-router/out/**/*.js"
+            ],
+            "preLaunchTask": "npm: compile - agent-session-router"
+        }
+    ]
+}
