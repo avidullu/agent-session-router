@@ -11,7 +11,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { getConfig } from './config';
-import { exportSession } from './router';
+import { exportSession, resolveOutputDir } from './router';
 import { fileStat } from './utils';
 import { logWatcherEvent } from './logger';
 
@@ -120,7 +120,7 @@ async function handleFileEvent(filePath: string, event: 'change' | 'create'): Pr
             await exportSession({
                 sourceName, sourceKind, filePath, sessionId,
                 sizeBytes: stat.size, mtimeMs: stat.mtimeMs,
-            }, config.outputDir || '');
+            }, resolveOutputDir(config));
         } catch (err) {
             logWatcherEvent('error', filePath, {
                 error: err instanceof Error ? err.message : String(err),

@@ -7,7 +7,7 @@ import { discoverAllSessions, exportAllSessions, exportSession } from './router'
 import { getConfig } from './config';
 import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
-import { startWatcher, stopWatcher, isWatcherRunning } from './watcher';
+import { startWatcher, stopWatcher } from './watcher';
 
 export function registerCommands(context: vscode.ExtensionContext): void {
     const channel = getOutputChannel();

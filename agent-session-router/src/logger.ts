@@ -16,7 +16,7 @@ import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let vscodeApi: any;
 try {
-    vscodeApi = require('vscodeApi');
+    vscodeApi = require('vscode');
 } catch {
     vscodeApi = undefined;
 }
