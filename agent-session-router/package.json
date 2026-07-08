@@ -23,7 +23,8 @@
         "onCommand:agentSessionRouter.diagnosticBundle",
         "onCommand:agentSessionRouter.watchStart",
         "onCommand:agentSessionRouter.watchStop",
-        "onCommand:agentSessionRouter.showConfig"
+        "onCommand:agentSessionRouter.showConfig",
+        "onCommand:agentSessionRouter.resetState"
     ],
     "main": "./out/extension.js",
     "contributes": {
@@ -61,6 +62,11 @@
             {
                 "command": "agentSessionRouter.showConfig",
                 "title": "Agent Session Router: Show Configuration",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.resetState",
+                "title": "Agent Session Router: Reset — Clear All Cached Exports",
                 "category": "Agent Sessions"
             }
         ],

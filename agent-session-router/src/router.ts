@@ -55,6 +55,10 @@ autoLoadModules('extractors');
 /** In-memory cache of previous export records (keyed by filePath). */
 const exportCache = new Map<string, ExportRecord>();
 
+export function resetExportCache(): void {
+    exportCache.clear();
+}
+
 export function resolveOutputDir(config: Config): string {
     if (config.outputDir) {
         return config.outputDir;
