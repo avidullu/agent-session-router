@@ -111,6 +111,8 @@ Session data lives in `globalStorage` or `workspaceStorage`.
 | **DeepSeek V4** | `vizards.deepseek-v4-for-copilot` | `globalStorage/vizards.deepseek-v4-for-copilot/request-dumps/` | JSON | ✅ Full support |
 | **Z.AI / ZAI** | `ltmoerdani.zai-copilot-chat` | Reuses Copilot Chat storage (model-provider fork) | JSONL | ✅ Via copilot_chat |
 | **OpenAI ChatGPT** | `openai.chatgpt` | Uses bundled Codex CLI → `~/.codex/sessions/` | JSONL | ✅ Via Codex extractor |
+| **Grok (X.AI)** | *(VS Code LM API)* | Uses Copilot Chat storage via VS Code's "Set X.AI API Key" mechanism. All transcripts show `producer: copilot-agent` — model choice is not recorded in metadata. | JSONL | ✅ Via copilot_chat |
+| **Any LM API key model** | *(VS Code LM API)* | Same as above — Claude, Gemini, Grok, or any model added via VS Code's "Set API Key" command routes through Copilot Chat's transcript storage. No separate discoverer needed. | JSONL | ✅ Via copilot_chat |
 | **Gemini (VS Code)** | (TBD) | (TBD) | (TBD) | 🔮 Research needed |
 
 #### Category B: Aggregator-Backed VS Code Extensions
