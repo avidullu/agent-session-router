@@ -1,10 +1,9 @@
 /**
  * Copilot Chat session discoverer.
  *
- * Scans VS Code workspaceStorage for Copilot Chat debug-logs and
- * chat-session-resources directories.
- *
- * Each debug-logs subdirectory (named by UUID) is a session.
+ * Scans VS Code workspaceStorage for Copilot Chat transcripts.
+ * Primary source: transcripts/{uuid}.jsonl — structured conversation transcript.
+ * Fallback: debug-logs/{uuid}/main.jsonl — basic session timeline.
  */
 
 import * as fs from 'fs';
@@ -39,26 +38,57 @@ async function* discoverCopilotChatSessions(): AsyncIterable<DiscoveredSession> 
         for (const wsDir of wsDirs) {
             if (!wsDir.isDirectory()) continue;
 
-            const debugLogsDir = path.join(wsRoot, wsDir.name, COPILOT_EXTENSION_ID, 'debug-logs');
-            if (!fs.existsSync(debugLogsDir)) continue;
+            const copilotDir = path.join(wsRoot, wsDir.name, COPILOT_EXTENSION_ID);
+            if (!fs.existsSync(copilotDir)) continue;
 
-            const sessionDirs = fs.readdirSync(debugLogsDir, { withFileTypes: true });
-            for (const sessionDir of sessionDirs) {
-                if (!sessionDir.isDirectory()) continue;
+            // Primary: transcripts/{uuid}.jsonl (structured conversation)
+            const transcriptsDir = path.join(copilotDir, 'transcripts');
+            const foundInTranscripts = new Set<string>();
 
-                const mainJsonl = path.join(debugLogsDir, sessionDir.name, 'main.jsonl');
-                if (!fs.existsSync(mainJsonl)) continue;
+            if (fs.existsSync(transcriptsDir)) {
+                const files = fs.readdirSync(transcriptsDir, { withFileTypes: true });
+                for (const file of files) {
+                    if (!file.isFile() || !file.name.endsWith('.jsonl')) continue;
 
-                const stat = fs.statSync(mainJsonl);
+                    const filePath = path.join(transcriptsDir, file.name);
+                    const stat = fs.statSync(filePath);
+                    const sessionId = file.name.replace('.jsonl', '');
 
-                yield {
-                    sourceName: 'copilot-vscode',
-                    sourceKind: 'copilot_chat',
-                    filePath: mainJsonl,
-                    sessionId: sessionDir.name,
-                    sizeBytes: stat.size,
-                    mtimeMs: stat.mtimeMs,
-                };
+                    foundInTranscripts.add(sessionId);
+
+                    yield {
+                        sourceName: 'copilot-vscode',
+                        sourceKind: 'copilot_chat',
+                        filePath,
+                        sessionId,
+                        sizeBytes: stat.size,
+                        mtimeMs: stat.mtimeMs,
+                    };
+                }
+            }
+
+            // Fallback: debug-logs/{uuid}/ (only sessions not already in transcripts/)
+            const debugLogsDir = path.join(copilotDir, 'debug-logs');
+            if (fs.existsSync(debugLogsDir)) {
+                const sessionDirs = fs.readdirSync(debugLogsDir, { withFileTypes: true });
+                for (const sessionDir of sessionDirs) {
+                    if (!sessionDir.isDirectory()) continue;
+                    if (foundInTranscripts.has(sessionDir.name)) continue;
+
+                    const mainJsonl = path.join(debugLogsDir, sessionDir.name, 'main.jsonl');
+                    if (!fs.existsSync(mainJsonl)) continue;
+
+                    const stat = fs.statSync(mainJsonl);
+
+                    yield {
+                        sourceName: 'copilot-vscode',
+                        sourceKind: 'copilot_chat',
+                        filePath: mainJsonl,
+                        sessionId: sessionDir.name,
+                        sizeBytes: stat.size,
+                        mtimeMs: stat.mtimeMs,
+                    };
+                }
             }
         }
     }
