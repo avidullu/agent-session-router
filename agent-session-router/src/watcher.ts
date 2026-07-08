@@ -1,90 +1,194 @@
 /**
- * Filesystem watcher for auto-export.
+ * Filesystem watcher for auto-export (Phase 3).
  *
- * Uses chokidar (or VS Code's FileSystemWatcher) to monitor agent session
- * directories for new or modified files, triggering automatic export after
- * a configurable debounce period.
- *
- * Status: PLACEHOLDER — full implementation in Phase 3.
+ * Uses chokidar for cross-platform filesystem watching with debounce.
+ * Monitors VS Code globalStorage and workspaceStorage for new or modified
+ * agent session files, triggering automatic export.
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 import { getConfig } from './config';
-import { exportSession } from './router';
+import { exportSession, resolveOutputDir } from './router';
 import { fileStat } from './utils';
+import { logWatcherEvent } from './logger';
 
-export function createWatcher(): vscode.Disposable {
-    const config = getConfig();
-    const disposables: vscode.Disposable[] = [];
+// ---------------------------------------------------------------------------
+// Chokidar dynamic import
+// ---------------------------------------------------------------------------
 
-    // TODO: Phase 3 — use chokidar for cross-platform filesystem watching
-    // For now, use VS Code's built-in FileSystemWatcher as a basic approach
+let chokidar: typeof import('chokidar') | null = null;
 
-    // Use VS Code's workspace FileSystemWatcher with null base (monitors all workspaces)
-    const deepseekPattern = new vscode.RelativePattern(
-        vscode.workspace.workspaceFolders?.[0] || vscode.Uri.file(process.env.USERPROFILE || '~'),
-        '**/globalStorage/vizards.deepseek-v4-for-copilot/request-dumps/**/*.json',
-    );
-    const copilotPattern = new vscode.RelativePattern(
-        vscode.workspace.workspaceFolders?.[0] || vscode.Uri.file(process.env.USERPROFILE || '~'),
-        '**/workspaceStorage/*/GitHub.copilot-chat/debug-logs/**/main.jsonl',
-    );
-    const patterns = [deepseekPattern, copilotPattern];
-
-    for (const pattern of patterns) {
-        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-
-        watcher.onDidChange(async (uri) => {
-            console.log(`[agent-session-router] File changed: ${uri.fsPath}`);
-            await handleFileEvent(uri.fsPath);
-        });
-
-        watcher.onDidCreate(async (uri) => {
-            console.log(`[agent-session-router] File created: ${uri.fsPath}`);
-            await handleFileEvent(uri.fsPath);
-        });
-
-        disposables.push(watcher);
+async function ensureChokidar(): Promise<typeof import('chokidar')> {
+    if (!chokidar) {
+        chokidar = await import('chokidar');
     }
-
-    return vscode.Disposable.from(...disposables);
+    return chokidar;
 }
 
-const debounceTimers = new Map<string, NodeJS.Timeout>();
+// ---------------------------------------------------------------------------
+// Watcher state
+// ---------------------------------------------------------------------------
 
-async function handleFileEvent(filePath: string): Promise<void> {
-    const config = getConfig();
+interface WatcherState {
+    watcher: import('chokidar').FSWatcher | null;
+    debounceTimers: Map<string, NodeJS.Timeout>;
+    isRunning: boolean;
+}
 
-    // Clear existing debounce timer for this file
-    const existing = debounceTimers.get(filePath);
-    if (existing) {
-        clearTimeout(existing);
+const state: WatcherState = {
+    watcher: null,
+    debounceTimers: new Map(),
+    isRunning: false,
+};
+
+// ---------------------------------------------------------------------------
+// Path resolution
+// ---------------------------------------------------------------------------
+
+function getWatchPaths(): string[] {
+    const paths: string[] = [];
+    const appData = process.env.APPDATA;
+    const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+
+    if (appData) {
+        paths.push(path.join(appData, 'Code', 'User', 'globalStorage',
+            'vizards.deepseek-v4-for-copilot', 'request-dumps'));
+        paths.push(path.join(appData, 'Code', 'User', 'workspaceStorage'));
     }
 
-    // Set new debounce timer
+    paths.push(path.join(configDir, 'Code', 'User', 'workspaceStorage'));
+    paths.push(path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'workspaceStorage'));
+
+    return paths.filter(p => fs.existsSync(p));
+}
+
+// ---------------------------------------------------------------------------
+// File event handler
+// ---------------------------------------------------------------------------
+
+function isSessionFile(filePath: string): boolean {
+    const isDeepSeek = filePath.includes('request-dumps') && filePath.endsWith('.json');
+    const isCopilotTranscript = filePath.includes('transcripts') && filePath.endsWith('.jsonl');
+    const isCopilotDebugLog = filePath.includes('debug-logs') && filePath.endsWith('main.jsonl');
+    return isDeepSeek || isCopilotTranscript || isCopilotDebugLog;
+}
+
+function determineSourceKind(filePath: string): string {
+    if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {
+        return 'deepseek_request_dump';
+    }
+    return 'copilot_chat';
+}
+
+function determineSourceName(filePath: string): string {
+    if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {
+        return 'deepseek-vscode-auto';
+    }
+    return 'copilot-vscode-auto';
+}
+
+function extractSessionId(filePath: string): string {
+    const parts = filePath.replace(/\\/g, '/').split('/');
+    for (let i = parts.length - 1; i >= 0; i--) {
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[i])) {
+            return parts[i];
+        }
+    }
+    return path.basename(filePath, path.extname(filePath));
+}
+
+async function handleFileEvent(filePath: string, event: 'change' | 'create'): Promise<void> {
+    if (!isSessionFile(filePath)) return;
+
+    const config = getConfig();
+    const existing = state.debounceTimers.get(filePath);
+    if (existing) clearTimeout(existing);
+
     const timer = setTimeout(async () => {
-        debounceTimers.delete(filePath);
+        state.debounceTimers.delete(filePath);
         try {
             const stat = fileStat(filePath);
-            // Basic heuristic to determine source kind from path
-            const sourceKind = filePath.includes('deepseek') ? 'deepseek_request_dump' : 'copilot_chat';
-            const sourceName = filePath.includes('deepseek') ? 'deepseek-vscode-auto' : 'copilot-vscode-auto';
+            const sourceKind = determineSourceKind(filePath);
+            const sourceName = determineSourceName(filePath);
+            const sessionId = extractSessionId(filePath);
 
-            await exportSession(
-                {
-                    sourceName,
-                    sourceKind,
-                    filePath,
-                    sessionId: filePath,
-                    sizeBytes: stat.size,
-                    mtimeMs: stat.mtimeMs,
-                },
-                config.outputDir || '',
-            );
+            logWatcherEvent(event, filePath, { sourceKind, sessionId, sizeBytes: stat.size });
+
+            await exportSession({
+                sourceName, sourceKind, filePath, sessionId,
+                sizeBytes: stat.size, mtimeMs: stat.mtimeMs,
+            }, resolveOutputDir(config));
         } catch (err) {
-            console.error(`[agent-session-router] Auto-export failed for ${filePath}:`, err);
+            logWatcherEvent('error', filePath, {
+                error: err instanceof Error ? err.message : String(err),
+            });
         }
     }, config.watch.debounceMs);
 
-    debounceTimers.set(filePath, timer);
+    state.debounceTimers.set(filePath, timer);
+}
+
+// ---------------------------------------------------------------------------
+// Start / Stop
+// ---------------------------------------------------------------------------
+
+export async function startWatcher(): Promise<void> {
+    if (state.isRunning) {
+        vscode.window.showInformationMessage('Agent Session Router: Watcher is already running.');
+        return;
+    }
+
+    const chokidarLib = await ensureChokidar();
+    const watchPaths = getWatchPaths();
+
+    if (watchPaths.length === 0) {
+        vscode.window.showWarningMessage(
+            'Agent Session Router: No watchable directories found.'
+        );
+        return;
+    }
+
+    logWatcherEvent('start');
+
+    state.watcher = chokidarLib.watch(watchPaths, {
+        ignored: [/(^|[\/\\])\.\./, /node_modules/, /\.git/, '**/models.json'],
+        persistent: true,
+        ignoreInitial: true,
+        awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
+        depth: 10,
+    });
+
+    state.watcher.on('add', (fp: string) => handleFileEvent(fp, 'create'));
+    state.watcher.on('change', (fp: string) => handleFileEvent(fp, 'change'));
+    state.watcher.on('error', (error: Error) => {
+        logWatcherEvent('error', undefined, { error: error.message });
+    });
+
+    state.isRunning = true;
+    vscode.window.showInformationMessage(
+        `Agent Session Router: Watching ${watchPaths.length} directories.`
+    );
+}
+
+export async function stopWatcher(): Promise<void> {
+    if (!state.isRunning || !state.watcher) {
+        vscode.window.showInformationMessage('Agent Session Router: No watcher running.');
+        return;
+    }
+
+    logWatcherEvent('stop');
+    for (const timer of state.debounceTimers.values()) clearTimeout(timer);
+    state.debounceTimers.clear();
+    await state.watcher.close();
+    state.watcher = null;
+    state.isRunning = false;
+
+    vscode.window.showInformationMessage('Agent Session Router: Watcher stopped.');
+}
+
+export function isWatcherRunning(): boolean {
+    return state.isRunning;
 }

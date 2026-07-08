@@ -9,9 +9,17 @@
  * diagnostic tools or shared as a debug artifact.
  */
 
-import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// vscodeApi may not be available when running outside VS Code (e.g., tests)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let vscodeApi: any;
+try {
+    vscodeApi = require('vscode');
+} catch {
+    vscodeApi = undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,7 +68,8 @@ export interface DiagnosticEntry {
 // Logger
 // ---------------------------------------------------------------------------
 
-let _outputChannel: vscode.OutputChannel | undefined;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _outputChannel: any | undefined;
 let _diagnosticsDir: string | undefined;
 let _diagnosticsPath: string | undefined;
 
@@ -68,14 +77,21 @@ let _diagnosticsPath: string | undefined;
 export function initLogger(diagnosticsDir: string): void {
     _diagnosticsDir = diagnosticsDir;
     _diagnosticsPath = path.join(diagnosticsDir, '.router', 'diagnostics.jsonl');
-    _outputChannel = vscode.window.createOutputChannel('Agent Session Router', { log: true });
-    _outputChannel.show(true);
+    if (vscodeApi) {
+        _outputChannel = vscodeApi.window.createOutputChannel('Agent Session Router', { log: true });
+        _outputChannel.show(true);
+    }
+    ensureDiagnosticsDir();
 }
 
-/** Get the VS Code Output Channel (for use by other modules). */
-export function getOutputChannel(): vscode.OutputChannel {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getOutputChannel(): any {
     if (!_outputChannel) {
-        _outputChannel = vscode.window.createOutputChannel('Agent Session Router', { log: true });
+        if (vscodeApi) {
+            _outputChannel = vscodeApi.window.createOutputChannel('Agent Session Router', { log: true });
+        } else {
+            return console;
+        }
     }
     return _outputChannel;
 }
@@ -115,13 +131,15 @@ function formatConsoleMessage(entry: DiagnosticEntry): string {
 function log(entry: DiagnosticEntry): void {
     const consoleMsg = formatConsoleMessage(entry);
 
-    // VS Code Output Channel
+    // VS Code Output Channel (or console fallback)
     if (_outputChannel) {
+        _outputChannel.appendLine(consoleMsg);
+    } else {
+        // Fallback for non-VS Code environments
         switch (entry.level) {
-            case 'error': _outputChannel.appendLine(consoleMsg); break;
-            case 'warn': _outputChannel.appendLine(consoleMsg); break;
-            case 'info': _outputChannel.appendLine(consoleMsg); break;
-            case 'debug': _outputChannel.appendLine(consoleMsg); break;
+            case 'error': console.error(consoleMsg); break;
+            case 'warn': console.warn(consoleMsg); break;
+            default: console.log(consoleMsg); break;
         }
     }
 
@@ -343,3 +361,4 @@ export function getDiagnosticsPath(): string | undefined {
 export function getDiagnosticsDir(): string | undefined {
     return _diagnosticsDir;
 }
+

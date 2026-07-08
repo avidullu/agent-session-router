@@ -7,6 +7,7 @@ import { discoverAllSessions, exportAllSessions, exportSession } from './router'
 import { getConfig } from './config';
 import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
+import { startWatcher, stopWatcher } from './watcher';
 
 export function registerCommands(context: vscode.ExtensionContext): void {
     const channel = getOutputChannel();
@@ -204,33 +205,16 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     );
 
     // Start watcher
-    let watcherDisposable: vscode.Disposable | undefined;
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStart', async () => {
-            if (watcherDisposable) {
-                vscode.window.showInformationMessage('Agent Session Router: Watcher is already running.');
-                return;
-            }
-            // Placeholder — watcher implementation in watcher.ts
-            vscode.window.showInformationMessage(
-                'Agent Session Router: Watcher started (placeholder). Full watcher implementation pending.'
-            );
-            watcherDisposable = new vscode.Disposable(() => {
-                console.log('[agent-session-router] Watcher stopped.');
-            });
+            await startWatcher();
         })
     );
 
     // Stop watcher
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStop', async () => {
-            if (watcherDisposable) {
-                watcherDisposable.dispose();
-                watcherDisposable = undefined;
-                vscode.window.showInformationMessage('Agent Session Router: Watcher stopped.');
-            } else {
-                vscode.window.showInformationMessage('Agent Session Router: No watcher is running.');
-            }
+            await stopWatcher();
         })
     );
 }

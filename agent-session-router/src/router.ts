@@ -36,7 +36,7 @@ import './extractors/copilot-chat';
 /** In-memory cache of previous export records (keyed by filePath). */
 const exportCache = new Map<string, ExportRecord>();
 
-function resolveOutputDir(config: Config): string {
+export function resolveOutputDir(config: Config): string {
     if (config.outputDir) {
         return config.outputDir;
     }

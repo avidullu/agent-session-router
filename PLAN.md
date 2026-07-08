@@ -1,11 +1,16 @@
 # VS Code Agent Session Router — Architecture & Implementation Plan
 
-> **🏁 CHECKPOINT 1 — 2026-07-08**  
-> Phase 1 (Foundation) complete. Extension scaffold built, TypeScript compiles clean.  
-> DeepSeek + Copilot Chat discoverers/extractors implemented.  
-> Structured logging + diagnostic bundle export operational.  
-> ADR-001 accepted.  
-> **Next**: Phase 2 (Copilot enhanced extractor) → Phase 3 (Watcher) → Phase 5 (Aggregator agents).  
+> **🏁 CHECKPOINT 1 — 2026-07-08** ✅ Merged  
+> Phase 1 (Foundation) complete: scaffold, types, registries, router, DeepSeek extractor.  
+> ADR-001 accepted. Structured logging + diagnostic bundle operational.  
+>
+> **🏁 CHECKPOINT 2 — 2026-07-08** (this PR)  
+> Phase 2 (Copilot enhanced extractor) + Phase 3 (Watcher) complete.  
+> Copilot extractor now uses `transcripts/{uuid}.jsonl` as primary source with  
+> `chat-session-resources/` cross-referencing for tool output.  
+> Watcher implemented with chokidar for cross-platform filesystem monitoring.  
+> 9 tests passing (6 smoke + 3 integration).  
+> **Next**: Phase 5 (Aggregator agents — Continue, Cline, Cody).  
 > Repo: <https://github.com/avidullu/agent-session-router>
 
 ## 1. Problem Statement
