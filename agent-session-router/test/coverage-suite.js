@@ -371,14 +371,18 @@ test('deepseek: provider-input with tool calls', () => {
         model: { vscodeModelId: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
         messages: [
             { index: 0, role: 'system', contentParts: [{ index: 0, type: 'text', value: 'You are a coding assistant.' }] },
-            { index: 1, role: 'assistant', contentParts: [
-                { index: 0, type: 'text', value: 'Let me read that file.' },
-            ], toolCalls: [
-                { id: 'call_123', function: { name: 'read_file', arguments: '{"filePath":"/test.ts"}' } },
-            ]},
-            { index: 2, role: 'tool', toolCallId: 'call_123', name: 'read_file', contentParts: [
-                { index: 0, type: 'text', value: 'console.log("hello");' },
-            ]},
+            {
+                index: 1, role: 'assistant', contentParts: [
+                    { index: 0, type: 'text', value: 'Let me read that file.' },
+                ], toolCalls: [
+                    { id: 'call_123', function: { name: 'read_file', arguments: '{"filePath":"/test.ts"}' } },
+                ]
+            },
+            {
+                index: 2, role: 'tool', toolCallId: 'call_123', name: 'read_file', contentParts: [
+                    { index: 0, type: 'text', value: 'console.log("hello");' },
+                ]
+            },
         ],
     };
     const filePath = path.join(tmpDir, 'test-session', 'provider-input.json');
@@ -420,9 +424,11 @@ test('deepseek: simple format with tool_calls', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
     const json = {
         messages: [
-            { role: 'assistant', content: '', tool_calls: [
-                { id: 'call_abc', function: { name: 'execute_command', arguments: '{"command":"ls"}' } },
-            ]},
+            {
+                role: 'assistant', content: '', tool_calls: [
+                    { id: 'call_abc', function: { name: 'execute_command', arguments: '{"command":"ls"}' } },
+                ]
+            },
             { role: 'tool', tool_call_id: 'call_abc', name: 'execute_command', content: 'file1.txt\nfile2.txt' },
         ],
     };
@@ -469,13 +475,17 @@ test('deepseek: contentParts with mixed types (text + data)', () => {
     const json = {
         model: { name: 'test-model' },
         messages: [
-            { index: 0, role: 'user', contentParts: [
-                { index: 0, type: 'text', value: 'Look at this image:' },
-                { index: 1, type: 'image_url', value: 'data:image/png;base64,abc' },
-            ]},
-            { index: 1, role: 'assistant', contentParts: [
-                { index: 0, type: 'text', value: 'I see the image.' },
-            ]},
+            {
+                index: 0, role: 'user', contentParts: [
+                    { index: 0, type: 'text', value: 'Look at this image:' },
+                    { index: 1, type: 'image_url', value: 'data:image/png;base64,abc' },
+                ]
+            },
+            {
+                index: 1, role: 'assistant', contentParts: [
+                    { index: 0, type: 'text', value: 'I see the image.' },
+                ]
+            },
         ],
     };
     const filePath = path.join(tmpDir, 'test-session', 'mixed.json');
@@ -655,8 +665,8 @@ const configMod = require('../out/config');
 test('config: getConfig returns defaults without vscode', () => {
     const cfg = configMod.getConfig();
     assertEqual(cfg.enabled, true);
-    assertEqual(cfg.sources.copilotChat.enabled, true);
-    assertEqual(cfg.sources.deepseek.enabled, true);
+    assertEqual(cfg.sources.copilot_chat.enabled, true);
+    assertEqual(cfg.sources.deepseek_request_dump.enabled, true);
     assertEqual(cfg.watch.enabled, false);
     assertEqual(cfg.watch.debounceMs, 5000);
     assertEqual(cfg.maxSessionAge, '90d');
