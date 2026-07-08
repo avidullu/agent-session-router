@@ -15,7 +15,7 @@ import { registerExtractor } from './index';
 
 function extractGeneric(filePath: string): ExtractedSession {
     const metadata: Record<string, unknown> = {
-        session_id: path.basename(filePath, path.extname(filePath)),
+        session_id: path.basename(path.dirname(filePath)) + '_' + path.basename(filePath, path.extname(filePath)),
         source_file: filePath,
     };
     const messages: SessionMessage[] = [];
