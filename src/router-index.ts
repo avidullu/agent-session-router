@@ -13,8 +13,9 @@ import { buildRouterIndexRecord, indexIdentityKey } from './contract';
 /**
  * Write/merge records into `{outputDir}/.router-index.jsonl`.
  *
- * Existing records are read and de-duplicated by session identity (later wins),
- * so re-running the router keeps the file bounded rather than appending forever.
+ * Existing records are read and de-duplicated by session+digest identity (later
+ * wins), so re-running the router keeps identical exports bounded without
+ * collapsing sibling/append-only records that share a session id.
  * Malformed lines are skipped, mirroring the hub's tolerant JSONL reader.
  */
 export function writeRouterIndex(outputDir: string, records: ExportRecord[]): void {

@@ -140,12 +140,15 @@ export function buildRouterIndexRecord(opts: {
 export function indexIdentityKey(record: {
     source?: string;
     source_file?: string;
+    sha256?: string;
     metadata?: unknown;
 }): string {
     const metadata = record.metadata;
     if (metadata && typeof metadata === 'object') {
         const sid = (metadata as Record<string, unknown>).session_id;
-        if (typeof sid === 'string' && sid.trim()) return `session:${sid.trim()}`;
+        if (typeof sid === 'string' && sid.trim()) {
+            return `session:${sid.trim()}:${record.sha256 ?? ''}`;
+        }
     }
     return `path:${record.source ?? ''}:${record.source_file ?? ''}`;
 }
