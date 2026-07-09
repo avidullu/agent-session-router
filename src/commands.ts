@@ -3,8 +3,8 @@
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import { discoverAllSessions, exportAllSessions, exportSession, resetExportCache, resolveOutputDir } from './router';
 import { getConfig } from './config';
 import { getOutputChannel } from './logger';
@@ -64,6 +64,70 @@ function displayDiscoverySummary(
     }
     channel.appendLine('');
     channel.appendLine('  Run "Export All Sessions" to archive these as Markdown.');
+}
+
+// ── Output-directory validation ─────────────────────────────────────
+
+/**
+ * Check that a path can be used as an output directory.
+ * Returns an error message string if invalid, or `undefined` if OK.
+ *
+ * Rules:
+ *  - Path must exist as a directory (or have a writable parent for new dirs).
+ *  - Must be writable (verified by creating + deleting a temp file).
+ */
+function validateOutputDir(dirPath: string): string | undefined {
+    if (!dirPath || !dirPath.trim()) {
+        return 'Path cannot be empty.';
+    }
+
+    const resolved = path.resolve(dirPath.trim());
+
+    // Normalize away trailing separators so stat calls work reliably
+    const normalized = resolved.replace(/[\\/]+$/, '');
+
+    let stat: fs.Stats;
+    try {
+        stat = fs.statSync(normalized);
+    } catch {
+        // Path doesn't exist — check that the parent is a writable directory
+        const parent = path.dirname(normalized);
+        if (parent === normalized) {
+            return 'Path is a root drive and cannot be created.';
+        }
+        try {
+            const parentStat = fs.statSync(parent);
+            if (!parentStat.isDirectory()) {
+                return `Parent path '${parent}' is not a directory.`;
+            }
+            // Check parent writability
+            const probe = path.join(parent, '.agent-session-router-write-test');
+            try {
+                fs.writeFileSync(probe, 'test', { flag: 'wx' });
+                fs.unlinkSync(probe);
+            } catch {
+                return `Parent directory '${parent}' is not writable.`;
+            }
+            return undefined; // parent exists and is writable — the dir will be created on first export
+        } catch {
+            return `Parent directory '${parent}' does not exist. Create it first.`;
+        }
+    }
+
+    if (!stat.isDirectory()) {
+        return `Path '${normalized}' exists but is not a directory.`;
+    }
+
+    // Verify write permission by creating + deleting a temp probe file
+    const probe = path.join(normalized, '.agent-session-router-write-test');
+    try {
+        fs.writeFileSync(probe, 'test', { flag: 'wx' });
+        fs.unlinkSync(probe);
+    } catch {
+        return `Directory '${normalized}' is not writable. Check permissions.`;
+    }
+
+    return undefined;
 }
 
 // ── Command registrations ────────────────────────────────────────────
@@ -274,17 +338,22 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                 });
                 if (!folders || folders.length === 0) return;
                 newDir = folders[0].fsPath;
+
+                // Validate the browsed folder is writable
+                const browseError = validateOutputDir(newDir);
+                if (browseError) {
+                    vscode.window.showErrorMessage(
+                        `Agent Session Router: Cannot use this folder. ${browseError}`
+                    );
+                    return;
+                }
             } else if (choice.action === 'type') {
                 const input = await vscode.window.showInputBox({
                     prompt: 'Enter the path for the output directory',
                     value: currentDir,
                     placeHolder: 'e.g. C:\\Users\\You\\Projects\\Agent Sessions\\archive',
                     validateInput: (value) => {
-                        if (!value.trim()) {
-                            return 'Path cannot be empty. Use "Reset to auto-detect" to clear the setting.';
-                        }
-                        // Accept any path; warn if it doesn't exist but allow it
-                        return undefined;
+                        return validateOutputDir(value);
                     },
                 });
                 if (!input) return;
@@ -294,6 +363,17 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             }
 
             if (newDir === undefined) return;
+
+            // Final safety check (should never fail after validation, but belt + suspenders)
+            if (newDir) {
+                const finalError = validateOutputDir(newDir);
+                if (finalError) {
+                    vscode.window.showErrorMessage(
+                        `Agent Session Router: Cannot save setting. ${finalError}`
+                    );
+                    return;
+                }
+            }
 
             // Update the VS Code setting
             const target = vscode.ConfigurationTarget.Global;
@@ -308,7 +388,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             channel.appendLine('╚══════════════════════════════════════════╝');
             channel.appendLine('');
             if (newDir) {
-                channel.appendLine(`  New directory:  ${newDir}`);
+                channel.appendLine(`  New directory:  ${path.resolve(newDir)}`);
             } else {
                 channel.appendLine(`  Setting cleared — using auto-detect`);
                 channel.appendLine(`  Resolved dir:   ${displayDir}`);
@@ -319,7 +399,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
 
             vscode.window.showInformationMessage(
                 newDir
-                    ? `Agent Session Router: Output directory set to ${newDir}`
+                    ? `Agent Session Router: Output directory set to ${path.resolve(newDir)}`
                     : 'Agent Session Router: Output directory reset to auto-detect.',
             );
         })
