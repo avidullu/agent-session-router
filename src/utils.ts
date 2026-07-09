@@ -6,13 +6,57 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { StringDecoder } from 'string_decoder';
+
+const FILE_READ_CHUNK_BYTES = 1024 * 1024;
 
 /** Compute SHA-256 hex digest of a file. */
 export function sha256File(filePath: string): string {
     const h = crypto.createHash('sha256');
-    const data = fs.readFileSync(filePath);
-    h.update(data);
+    const fd = fs.openSync(filePath, 'r');
+    try {
+        const buffer = Buffer.allocUnsafe(FILE_READ_CHUNK_BYTES);
+        let bytesRead = 0;
+        do {
+            bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+            if (bytesRead > 0) {
+                h.update(buffer.subarray(0, bytesRead));
+            }
+        } while (bytesRead > 0);
+    } finally {
+        fs.closeSync(fd);
+    }
     return h.digest('hex');
+}
+
+/** Iterate a UTF-8 text file line-by-line without loading the whole file. */
+export function forEachTextLine(filePath: string, onLine: (line: string) => void): void {
+    const fd = fs.openSync(filePath, 'r');
+    const decoder = new StringDecoder('utf8');
+    let carry = '';
+
+    try {
+        const buffer = Buffer.allocUnsafe(FILE_READ_CHUNK_BYTES);
+        let bytesRead = 0;
+        do {
+            bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+            if (bytesRead <= 0) continue;
+
+            const text = carry + decoder.write(buffer.subarray(0, bytesRead));
+            const lines = text.split(/\r?\n/);
+            carry = lines.pop() ?? '';
+            for (const line of lines) {
+                onLine(line);
+            }
+        } while (bytesRead > 0);
+
+        const finalText = carry + decoder.end();
+        if (finalText.length > 0) {
+            onLine(finalText);
+        }
+    } finally {
+        fs.closeSync(fd);
+    }
 }
 
 /** Get file stat (size + mtime). */
