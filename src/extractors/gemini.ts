@@ -50,7 +50,7 @@ function extractGeminiAntigravity(filePath: string): ExtractedSession {
 
     try {
         const raw = fs.readFileSync(filePath, 'utf-8');
-        const lines = raw.split('\n').filter(line => line.trim());
+        const lines = raw.split('\n').filter((line) => line.trim());
 
         for (const line of lines) {
             let entry: GeminiEntry;
