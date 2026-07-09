@@ -1,0 +1,18 @@
+{
+  "source_modified": "2025-07-02T06:11:32+00:00",
+  "stem": "20250702-deep-seek-dump-deep-seek-dump-001122334455",
+  "markdown_rel": "archive/deepseek-vscode-windows/20250702-deep-seek-dump-deep-seek-dump-001122334455.md",
+  "router_index_record": {
+    "source": "deepseek-vscode-windows",
+    "kind": "deepseek_request_dump",
+    "source_file": "__SOURCE_FILE__",
+    "sha256": "0011223344556677889900aabbccddeeff00112233445566778899aabbccddee",
+    "size": 512,
+    "mtime": 1751436692,
+    "messages": 0,
+    "markdown": "archive/deepseek-vscode-windows/20250702-deep-seek-dump-deep-seek-dump-001122334455.md",
+    "metadata": {
+      "model_provider": "deepseek"
+    }
+  }
+}

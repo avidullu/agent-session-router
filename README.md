@@ -16,6 +16,21 @@ files you can search, diff, and commit to your private archive.
 4. **Auto-Export** — optionally monitor for new sessions and export them automatically
 5. **Pluggable** — add support for any AI agent by dropping 2 files into `discoverers/` and `extractors/`
 
+## Output format & the Agent Sessions contract
+
+This extension is a **feeder** for the [Agent Sessions](https://github.com/avidullu/agent-sessions)
+hub. It writes rendered Markdown into the hub's `archive/{source}/` plus an
+`archive/.router-index.jsonl` sidecar, which the hub's `export` merges into
+`archive/index.jsonl` automatically — no re-extraction needed.
+
+The on-disk format (Markdown layout, filename stem, index-record schema) is
+governed by the hub's canonical
+**[docs/OUTPUT_CONTRACT.md](https://github.com/avidullu/agent-sessions/blob/main/docs/OUTPUT_CONTRACT.md)**
+(`format_version: 1`). The mirrored helpers live in [`src/contract.ts`](src/contract.ts),
+and conformance is enforced by golden fixtures shared with the hub
+(`test/fixtures/contract/`) — `npm test` fails if this extension's output drifts
+from the hub's `render.py`.
+
 ## Supported Agents
 
 | Agent | Status |
