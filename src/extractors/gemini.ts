@@ -17,6 +17,7 @@
  */
 
 import * as fs from 'fs';
+import * as path from 'path';
 import { ExtractedSession, SessionMessage } from '../types';
 import { registerExtractor } from './index';
 
@@ -45,7 +46,10 @@ interface GeminiEntry {
 // ---------------------------------------------------------------------------
 
 function extractGeminiAntigravity(filePath: string): ExtractedSession {
-    const metadata: Record<string, unknown> = { source_file: filePath };
+    const metadata: Record<string, unknown> = {
+        session_id: sessionIdFromPath(filePath),
+        source_file: filePath,
+    };
     const messages: SessionMessage[] = [];
 
     try {
@@ -142,6 +146,23 @@ function extractGeminiAntigravity(filePath: string): ExtractedSession {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function sessionIdFromPath(filePath: string): string {
+    const normalized = filePath.replace(/\\/g, '/');
+    const parts = normalized.split('/').filter((part) => part.length > 0);
+    const logsIndex = parts.lastIndexOf('logs');
+
+    if (logsIndex >= 2 && parts[logsIndex - 1] === '.system_generated') {
+        return parts[logsIndex - 2];
+    }
+
+    const systemGeneratedIndex = parts.lastIndexOf('.system_generated');
+    if (systemGeneratedIndex >= 1) {
+        return parts[systemGeneratedIndex - 1];
+    }
+
+    return path.basename(normalized, path.extname(normalized));
+}
 
 /**
  * Strip <USER_REQUEST>…</USER_REQUEST> wrapper and embedded <ADDITIONAL_METADATA>,
