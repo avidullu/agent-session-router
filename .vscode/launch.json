@@ -6,12 +6,12 @@
             "type": "extensionHost",
             "request": "launch",
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/agent-session-router"
+                "--extensionDevelopmentPath=${workspaceFolder}"
             ],
             "outFiles": [
-                "${workspaceFolder}/agent-session-router/out/**/*.js"
+                "${workspaceFolder}/out/**/*.js"
             ],
-            "preLaunchTask": "npm: compile - agent-session-router"
+            "preLaunchTask": "npm: compile"
         }
     ]
 }

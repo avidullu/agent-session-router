@@ -4,23 +4,21 @@
         {
             "type": "npm",
             "script": "compile",
-            "path": "agent-session-router",
             "group": "build",
             "problemMatcher": [
                 "$tsc"
             ],
-            "label": "npm: compile - agent-session-router"
+            "label": "npm: compile"
         },
         {
             "type": "npm",
             "script": "watch",
-            "path": "agent-session-router",
             "group": "build",
             "isBackground": true,
             "problemMatcher": [
                 "$tsc-watch"
             ],
-            "label": "npm: watch - agent-session-router"
+            "label": "npm: watch"
         }
     ]
 }
