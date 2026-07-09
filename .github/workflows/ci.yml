@@ -15,19 +15,50 @@ permissions:
   contents: read
 
 jobs:
+  # ── Lint + Format gate (fast, runs first) ──────────────────────────
+  lint-format:
+    name: lint-format (node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20", "22"]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint:check
+
+      - name: Format (Prettier)
+        run: npm run format:check
+
+  # ── Build + Test (full OS + Node matrix) ───────────────────────────
   build-test:
     name: build-test (node ${{ matrix.node-version }}, ${{ matrix.os }})
+    needs: lint-format
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: ["20", "22"]
-        # The extension targets Windows/WSL/Linux users; verify Windows too
-        # (a Windows-only CRLF issue in the golden fixtures once slipped through).
-        include:
+        # Exclude combinations that add no coverage:
+        # - Windows-only CRLF golden-fixture risk tested on Node 20
+        exclude:
+          - os: macos-latest
+            node-version: "22"
           - os: windows-latest
-            node-version: "20"
+            node-version: "22"
     steps:
       - name: Check out
         uses: actions/checkout@v4

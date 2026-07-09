@@ -19,15 +19,44 @@ function getDeepSeekStorageRoots(): string[] {
     // Windows: %APPDATA%/Code/User/globalStorage/{extensionId}/request-dumps
     const appData = process.env.APPDATA;
     if (appData) {
-        roots.push(path.join(appData, 'Code', 'User', 'globalStorage', DEEPSEEK_EXTENSION_ID, 'request-dumps'));
+        roots.push(
+            path.join(
+                appData,
+                'Code',
+                'User',
+                'globalStorage',
+                DEEPSEEK_EXTENSION_ID,
+                'request-dumps',
+            ),
+        );
     }
 
     // Linux/macOS: ~/.config/Code/User/globalStorage/{extensionId}/request-dumps
     const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-    roots.push(path.join(configDir, 'Code', 'User', 'globalStorage', DEEPSEEK_EXTENSION_ID, 'request-dumps'));
+    roots.push(
+        path.join(
+            configDir,
+            'Code',
+            'User',
+            'globalStorage',
+            DEEPSEEK_EXTENSION_ID,
+            'request-dumps',
+        ),
+    );
 
     // macOS alternative
-    roots.push(path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'globalStorage', DEEPSEEK_EXTENSION_ID, 'request-dumps'));
+    roots.push(
+        path.join(
+            os.homedir(),
+            'Library',
+            'Application Support',
+            'Code',
+            'User',
+            'globalStorage',
+            DEEPSEEK_EXTENSION_ID,
+            'request-dumps',
+        ),
+    );
 
     return roots;
 }
@@ -41,11 +70,11 @@ async function* discoverDeepSeekSessions(): AsyncIterable<DiscoveredSession> {
         for (const entry of entries) {
             if (!entry.isDirectory()) continue;
             const sessionDir = path.join(root, entry.name);
-            const files = fs.readdirSync(sessionDir).filter(f => f.endsWith('.json'));
+            const files = fs.readdirSync(sessionDir).filter((f) => f.endsWith('.json'));
             if (files.length === 0) continue;
 
             // Use the first JSON file as the canonical source file
-            const canonicalFile = files.find(f => f.includes('input')) || files[0];
+            const canonicalFile = files.find((f) => f.includes('input')) || files[0];
             const filePath = path.join(sessionDir, canonicalFile);
             const stat = fs.statSync(filePath);
 

@@ -40,7 +40,11 @@ export function contractSlugify(value: string, maxLen = 90): string {
  * Mirror of pathlib PurePath.stem: final path segment minus its last suffix.
  */
 export function pathStem(p: string): string {
-    const base = p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '';
+    const base =
+        p
+            .replace(/[\\/]+$/, '')
+            .split(/[\\/]/)
+            .pop() || '';
     const dot = base.lastIndexOf('.');
     // A leading-dot-only name (".gitignore") or no dot has no suffix to remove.
     return dot > 0 ? base.slice(0, dot) : base;
@@ -85,7 +89,11 @@ export function archiveStem(opts: {
 }
 
 /** Repo-relative POSIX path to an archive markdown file, e.g. `archive/{src}/{stem}.md`. */
-export function repoRelativeMarkdown(archiveDirName: string, sourceName: string, stem: string): string {
+export function repoRelativeMarkdown(
+    archiveDirName: string,
+    sourceName: string,
+    stem: string,
+): string {
     return [archiveDirName, sourceName, `${stem}.md`].join('/');
 }
 
@@ -129,7 +137,11 @@ export function buildRouterIndexRecord(opts: {
 }
 
 /** Merge identity for router index records (archive.py index_identity_key). */
-export function indexIdentityKey(record: { source?: string; source_file?: string; metadata?: unknown }): string {
+export function indexIdentityKey(record: {
+    source?: string;
+    source_file?: string;
+    metadata?: unknown;
+}): string {
     const metadata = record.metadata;
     if (metadata && typeof metadata === 'object') {
         const sid = (metadata as Record<string, unknown>).session_id;

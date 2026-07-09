@@ -46,7 +46,7 @@ function autoLoadModules(dir: string): void {
             logExtractError('autoLoad', path.join(dirPath, file), dir, error);
             console.error(
                 `[agent-session-router] Failed to load ${dir}/${file}: ${error.message}. ` +
-                `This agent source will be unavailable. Check the Output Channel for details.`
+                    `This agent source will be unavailable. Check the Output Channel for details.`,
             );
         }
     }
@@ -86,10 +86,9 @@ export async function discoverAllSessions(
 
     // Discover all registered kinds that are enabled in config.
     // Users add new agents by registering a discoverer — config automatically picks it up.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { knownKinds } = require('./discoverers/index') as { knownKinds: () => string[] };
-    const kindsToDiscover = knownKinds().filter(
-        kind => config.sources[kind]?.enabled !== false
-    );
+    const kindsToDiscover = knownKinds().filter((kind) => config.sources[kind]?.enabled !== false);
 
     for (const kind of kindsToDiscover) {
         const discoverer = getDiscoverer(kind);
@@ -115,21 +114,34 @@ export async function exportSession(
 ): Promise<ExportRecord | null> {
     const extractor = getExtractor(session.sourceKind);
     if (!extractor) {
-        logSkip(session.sourceKind, session.filePath, session.sessionId,
-            `No extractor registered for kind: ${session.sourceKind}`);
+        logSkip(
+            session.sourceKind,
+            session.filePath,
+            session.sessionId,
+            `No extractor registered for kind: ${session.sourceKind}`,
+        );
         return null;
     }
 
     // Check cache for unchanged files
     const cached = exportCache.get(session.filePath) ?? null;
     if (cached && canReuseRecord(cached, session.sizeBytes, session.mtimeMs)) {
-        logSkip(session.sourceKind, session.filePath, session.sessionId,
-            'Unchanged since last export (cached)');
+        logSkip(
+            session.sourceKind,
+            session.filePath,
+            session.sessionId,
+            'Unchanged since last export (cached)',
+        );
         return cached;
     }
 
     // Extract
-    const extractDone = logExtractStart(session.sourceKind, session.filePath, session.sessionId, session.sizeBytes);
+    const extractDone = logExtractStart(
+        session.sourceKind,
+        session.filePath,
+        session.sessionId,
+        session.sizeBytes,
+    );
     let extracted;
     try {
         extracted = extractor(session.filePath);
@@ -139,20 +151,31 @@ export async function exportSession(
         let snippet: string | undefined;
         try {
             snippet = fs.readFileSync(session.filePath, 'utf-8').slice(0, 500);
-        } catch { /* file may not be readable */ }
+        } catch {
+            /* file may not be readable */
+        }
         logExtractError(session.sourceKind, session.filePath, session.sessionId, error, snippet);
         return null;
     }
     extractDone();
 
     if (!extracted.messages.length) {
-        logSkip(session.sourceKind, session.filePath, session.sessionId,
-            'No messages extracted (empty session)');
+        logSkip(
+            session.sourceKind,
+            session.filePath,
+            session.sessionId,
+            'No messages extracted (empty session)',
+        );
         return null;
     }
 
-    logExtractResult(session.sourceKind, session.filePath, session.sessionId,
-        extracted.messages.length, 0);
+    logExtractResult(
+        session.sourceKind,
+        session.filePath,
+        session.sessionId,
+        extracted.messages.length,
+        0,
+    );
 
     // Compute digest
     let digest: string;
@@ -194,7 +217,12 @@ export async function exportSession(
     }
     try {
         fs.writeFileSync(markdownPath, markdown, 'utf-8');
-        logWrite(session.sourceKind, session.sessionId, markdownPath, Buffer.byteLength(markdown, 'utf-8'));
+        logWrite(
+            session.sourceKind,
+            session.sessionId,
+            markdownPath,
+            Buffer.byteLength(markdown, 'utf-8'),
+        );
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         logWriteError(session.sourceKind, session.sessionId, markdownPath, error);
@@ -238,14 +266,14 @@ export async function exportAllSessions(
     const total = sessions.length;
     let completed = 0;
     let exported = 0;
-    let skipped = 0;
+    const skipped = 0;
     let failed = 0;
     const startTime = Date.now();
 
     for (const session of sessions) {
         progress.report({
             message: `Exporting ${completed + 1}/${total}: ${session.sourceName}`,
-            increment: (100 / total),
+            increment: 100 / total,
         });
 
         const record = await exportSession(session, outputDir);

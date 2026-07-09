@@ -44,9 +44,13 @@ async function* discoverAiderSessions(): AsyncIterable<DiscoveredSession> {
                             mtimeMs: stat.mtimeMs,
                         };
                     }
-                } catch { /* skip */ }
+                } catch {
+                    /* skip */
+                }
             }
-        } catch { /* skip */ }
+        } catch {
+            /* skip */
+        }
     }
 }
 

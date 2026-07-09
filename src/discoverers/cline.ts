@@ -23,11 +23,24 @@ function getClineStorageRoots(): string[] {
     const roots: string[] = [];
     const appData = process.env.APPDATA;
     if (appData) {
-        roots.push(path.join(appData, 'Code', 'User', 'globalStorage', CLINE_EXTENSION_ID, 'tasks'));
+        roots.push(
+            path.join(appData, 'Code', 'User', 'globalStorage', CLINE_EXTENSION_ID, 'tasks'),
+        );
     }
     const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
     roots.push(path.join(configDir, 'Code', 'User', 'globalStorage', CLINE_EXTENSION_ID, 'tasks'));
-    roots.push(path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'globalStorage', CLINE_EXTENSION_ID, 'tasks'));
+    roots.push(
+        path.join(
+            os.homedir(),
+            'Library',
+            'Application Support',
+            'Code',
+            'User',
+            'globalStorage',
+            CLINE_EXTENSION_ID,
+            'tasks',
+        ),
+    );
     return roots;
 }
 
@@ -53,10 +66,14 @@ async function* discoverClineSessions(): AsyncIterable<DiscoveredSession> {
                                 sizeBytes: stat.size,
                                 mtimeMs: stat.mtimeMs,
                             });
-                        } catch { /* skip */ }
+                        } catch {
+                            /* skip */
+                        }
                     }
                 }
-            } catch { /* skip */ }
+            } catch {
+                /* skip */
+            }
         };
         collect(root);
 

@@ -8,7 +8,6 @@
  * It never includes full session content — only metadata and error snippets.
  */
 
-import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -58,7 +57,7 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
     if (diagPath && fs.existsSync(diagPath)) {
         const content = fs.readFileSync(diagPath, 'utf-8');
         fs.writeFileSync(path.join(bundleDir, 'diagnostics.jsonl'), content, 'utf-8');
-        diagnosticsLines = content.split('\n').filter(l => l.trim()).length;
+        diagnosticsLines = content.split('\n').filter((l) => l.trim()).length;
     }
 
     // ---- 2. Write redacted config ----
@@ -75,9 +74,16 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
     fs.mkdirSync(sourcesDir, { recursive: true });
 
     if (diagPath && fs.existsSync(diagPath)) {
-        const lines = fs.readFileSync(diagPath, 'utf-8').split('\n').filter(l => l.trim());
-        const errorLines = lines.filter(l => {
-            try { return JSON.parse(l).level === 'error'; } catch { return false; }
+        const lines = fs
+            .readFileSync(diagPath, 'utf-8')
+            .split('\n')
+            .filter((l) => l.trim());
+        const errorLines = lines.filter((l) => {
+            try {
+                return JSON.parse(l).level === 'error';
+            } catch {
+                return false;
+            }
         });
 
         // Extract source file paths from error entries and sample them
@@ -89,12 +95,21 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
                     if (sampledPaths.has(entry.sourceFile)) continue;
                     sampledPaths.add(entry.sourceFile);
 
-                    const sourceContent = readFileSnippet(entry.sourceFile, MAX_SOURCE_SNIPPET_BYTES);
+                    const sourceContent = readFileSnippet(
+                        entry.sourceFile,
+                        MAX_SOURCE_SNIPPET_BYTES,
+                    );
                     const safeName = entry.sourceFile.replace(/[<>:"/\\|?*]/g, '_').slice(0, 100);
-                    fs.writeFileSync(path.join(sourcesDir, `${safeName}.txt`), sourceContent, 'utf-8');
+                    fs.writeFileSync(
+                        path.join(sourcesDir, `${safeName}.txt`),
+                        sourceContent,
+                        'utf-8',
+                    );
                     sourceSamples++;
                 }
-            } catch { /* skip malformed entries */ }
+            } catch {
+                /* skip malformed entries */
+            }
         }
     }
 
@@ -173,6 +188,8 @@ function getDirectorySize(dir: string): number {
                 total += getDirectorySize(p);
             }
         }
-    } catch { /* ignore */ }
+    } catch {
+        /* ignore */
+    }
     return total;
 }

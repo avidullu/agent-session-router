@@ -9,15 +9,15 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import { registerCommands } from './commands';
-import { getConfig, Config } from './config';
+import { getConfig } from './config';
 import { initLogger, getOutputChannel, getDiagnosticsPath } from './logger';
 
 export function activate(context: vscode.ExtensionContext): void {
     const config = getConfig();
 
     // Initialize structured logger early
-    const outputDir = config.outputDir ||
-        path.join(os.homedir(), 'Projects', 'Agent Sessions', 'archive');
+    const outputDir =
+        config.outputDir || path.join(os.homedir(), 'Projects', 'Agent Sessions', 'archive');
     initLogger(outputDir);
 
     const channel = getOutputChannel();
