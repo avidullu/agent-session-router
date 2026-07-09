@@ -24,6 +24,7 @@
         "onCommand:agentSessionRouter.watchStart",
         "onCommand:agentSessionRouter.watchStop",
         "onCommand:agentSessionRouter.showConfig",
+        "onCommand:agentSessionRouter.setOutputDir",
         "onCommand:agentSessionRouter.resetState"
     ],
     "main": "./out/extension.js",
@@ -65,6 +66,11 @@
                 "category": "Agent Sessions"
             },
             {
+                "command": "agentSessionRouter.setOutputDir",
+                "title": "Agent Session Router: Set Output Directory",
+                "category": "Agent Sessions"
+            },
+            {
                 "command": "agentSessionRouter.resetState",
                 "title": "Agent Session Router: Reset — Clear All Cached Exports",
                 "category": "Agent Sessions"
@@ -81,7 +87,8 @@
                 "agentSessionRouter.outputDir": {
                     "type": "string",
                     "default": "",
-                    "description": "Output directory for rendered Markdown session files. Defaults to the Agent Sessions archive directory if empty."
+                    "markdownDescription": "Output directory for rendered Markdown session files. Defaults to the Agent Sessions archive directory if empty. Use the **Agent Session Router: Set Output Directory** command to choose a folder interactively.",
+                    "editPresentation": "multilineText"
                 },
                 "agentSessionRouter.sources": {
                     "type": "object",

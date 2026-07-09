@@ -161,9 +161,27 @@ Open the Command Palette (`Ctrl+Shift+P`) and type "Agent Session Router":
 | **Export All Sessions** | Export all discovered sessions to Markdown |
 | **Export Selected Session** | Pick a specific session file to export |
 | **Export Diagnostic Bundle** | Package logs + source samples for debugging |
+| **Set Output Directory** | Choose where to save exported session files |
+| **Show Configuration** | Display current extension settings |
 | **Start Watching** | Begin auto-exporting sessions as they complete |
 | **Stop Watching** | Stop the auto-export watcher |
-| **Show Configuration** | Display current extension settings |
+
+### Setting the Output Directory
+
+You have three ways to set where sessions are exported:
+
+1. **Interactive (recommended):** Run **Agent Session Router: Set Output Directory** from the Command Palette. Choose "Browse" to pick a folder, "Type" to enter a path manually, or "Reset" to use auto-detect.
+
+2. **VS Code Settings UI:** Open Settings (`Ctrl+,`), search for `agentSessionRouter.outputDir`, and enter the path.
+
+3. **settings.json directly:** Add to your user or workspace `settings.json`:
+   ```jsonc
+   {
+     "agentSessionRouter.outputDir": "C:\\Users\\You\\Projects\\Agent Sessions\\archive"
+   }
+   ```
+
+If left empty, the extension auto-detects the Agent Sessions archive directory.
 
 ## Diagnostics & Debugging
 
@@ -213,18 +231,24 @@ Share the bundle folder with your AI agent or attach to a GitHub issue.
 
 ## Configuration
 
+All settings are under the `agentSessionRouter` namespace. Open Settings (`Ctrl+,`)
+and search "agentSessionRouter", or edit `settings.json` directly.
+
 ```jsonc
 {
   // Enable/disable the extension
   "agentSessionRouter.enabled": true,
 
-  // Output directory for rendered Markdown files
-  // Default: auto-detect Agent Sessions repo archive/ dir
-  "agentSessionRouter.outputDir": "~/Projects/Agent Sessions/archive",
+  // Output directory for rendered Markdown files.
+  // Leave empty to auto-detect the Agent Sessions archive/ directory.
+  // Use the "Set Output Directory" command to pick a folder interactively.
+  "agentSessionRouter.outputDir": "C:\\Users\\You\\Projects\\Agent Sessions\\archive",
 
-  // Per-source toggles
-  "agentSessionRouter.sources.copilotChat.enabled": true,
-  "agentSessionRouter.sources.deepseek.enabled": true,
+  // Per-source toggles — any discoverer kind works (pluggable)
+  "agentSessionRouter.sources": {
+    "copilot_chat": { "enabled": true },
+    "deepseek_request_dump": { "enabled": true }
+  },
 
   // Auto-watch settings
   "agentSessionRouter.watch.enabled": false,
@@ -234,6 +258,9 @@ Share the bundle folder with your AI agent or attach to a GitHub issue.
   "agentSessionRouter.maxSessionAge": "90d"
 }
 ```
+
+> **Tip:** Run **Agent Session Router: Show Configuration** to see your current
+> settings and the resolved output directory at any time.
 
 ## Output Format
 
