@@ -840,6 +840,134 @@ test('discoverer: deepseek registers', () => {
 });
 
 // ======================================================================
+// 11. WATCHER (pure-function unit tests)
+// ======================================================================
+console.log('\n─── watcher ───');
+
+// The watcher's pure helper functions (isSessionFile, determineSourceKind,
+// determineSourceName, extractSessionId) are private to watcher.ts and not
+// exported.  We reproduce their logic here for unit testing — these mirror
+// the implementation in src/watcher.ts exactly.
+// If watcher.ts changes, update these mirrors.
+
+function isSessionFile(filePath) {
+    const isDeepSeek = filePath.includes('request-dumps') && filePath.endsWith('.json');
+    const isCopilotTranscript = filePath.includes('transcripts') && filePath.endsWith('.jsonl');
+    const isCopilotDebugLog = filePath.includes('debug-logs') && filePath.endsWith('main.jsonl');
+    return isDeepSeek || isCopilotTranscript || isCopilotDebugLog;
+}
+
+function determineSourceKind(filePath) {
+    if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {
+        return 'deepseek_request_dump';
+    }
+    return 'copilot_chat';
+}
+
+function determineSourceName(filePath) {
+    if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {
+        return 'deepseek-vscode-auto';
+    }
+    return 'copilot-vscode-auto';
+}
+
+function extractSessionId(filePath) {
+    const parts = filePath.replace(/\\/g, '/').split('/');
+    for (let i = parts.length - 1; i >= 0; i--) {
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parts[i])) {
+            return parts[i];
+        }
+    }
+    // Normalize to forward slashes so path.basename works on Linux too
+    const normalized = filePath.replace(/\\/g, '/');
+    return require('path').basename(normalized, require('path').extname(normalized));
+}
+
+// ── isSessionFile ──
+test('watcher: isSessionFile detects deepseek json', () => {
+    assertEqual(isSessionFile('/path/request-dumps/session.json'), true);
+    assertEqual(isSessionFile('/path/request-dumps/session.txt'), false);
+});
+
+test('watcher: isSessionFile detects copilot transcript', () => {
+    assertEqual(isSessionFile('/ws/transcripts/uuid.jsonl'), true);
+    assertEqual(isSessionFile('/ws/transcripts/uuid.json'), false);
+});
+
+test('watcher: isSessionFile detects copilot debug log', () => {
+    assertEqual(isSessionFile('/ws/debug-logs/uuid/main.jsonl'), true);
+    assertEqual(isSessionFile('/ws/debug-logs/uuid/other.jsonl'), false);
+});
+
+test('watcher: isSessionFile rejects non-session files', () => {
+    assertEqual(isSessionFile('/tmp/random.txt'), false);
+    assertEqual(isSessionFile('/tmp/models.json'), false);
+    assertEqual(isSessionFile('/tmp/node_modules/pkg/index.js'), false);
+    assertEqual(isSessionFile('/tmp/.git/config'), false);
+});
+
+// ── determineSourceKind ──
+test('watcher: determineSourceKind deepseek', () => {
+    assertEqual(determineSourceKind('/app/deepseek/request-dumps/file.json'), 'deepseek_request_dump');
+    assertEqual(determineSourceKind('/app/vizards.deepseek-v4/request-dumps/x.json'), 'deepseek_request_dump');
+});
+
+test('watcher: determineSourceKind copilot default', () => {
+    assertEqual(determineSourceKind('/ws/copilot-chat/transcripts/uuid.jsonl'), 'copilot_chat');
+    assertEqual(determineSourceKind('/ws/copilot-chat/debug-logs/uuid/main.jsonl'), 'copilot_chat');
+    assertEqual(determineSourceKind('/unknown/something.txt'), 'copilot_chat');
+});
+
+// ── determineSourceName ──
+test('watcher: determineSourceName', () => {
+    assertEqual(determineSourceName('/deepseek/request-dumps/x.json'), 'deepseek-vscode-auto');
+    assertEqual(determineSourceName('/copilot/transcripts/x.jsonl'), 'copilot-vscode-auto');
+});
+
+// ── extractSessionId ──
+test('watcher: extractSessionId from UUID in path', () => {
+    // Use forward slashes — the function normalizes backslashes anyway.
+    // (Windows paths with \\t, \\U, \\x etc. trigger JS escape sequences.)
+    assertEqual(
+        extractSessionId('C:/Users/x/AppData/Roaming/Code/User/workspaceStorage/abc/github.copilot-chat/transcripts/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl'),
+        'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    );
+});
+
+test('watcher: extractSessionId from Windows path with backslashes', () => {
+    // Use String.raw to avoid escape-sequence mangling on \\ sequences
+    const winPath = String.raw`C:\Users\x\AppData\Roaming\Code\User\workspaceStorage\abc\github.copilot-chat\transcripts\f1e2d3c4-b5a6-7890-cdef-1234567890ab.jsonl`;
+    assertEqual(
+        extractSessionId(winPath),
+        'f1e2d3c4-b5a6-7890-cdef-1234567890ab',
+    );
+});
+
+test('watcher: extractSessionId falls back to basename', () => {
+    assertEqual(extractSessionId('/simple/path/session.json'), 'session');
+    assertEqual(extractSessionId('/no-uuid-here/data.jsonl'), 'data');
+});
+
+test('watcher: extractSessionId picks last UUID in path', () => {
+    assertEqual(
+        extractSessionId('/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222/file.jsonl'),
+        '22222222-2222-2222-2222-222222222222',
+    );
+});
+
+// ── startWatcher / stopWatcher smoke (module-load only) ──
+test('watcher: module exports startWatcher, stopWatcher, isWatcherRunning', () => {
+    // watcher.ts imports vscode at the top level, so we can't require()
+    // it directly in a plain Node process.  Verify the compiled output
+    // has the expected exports shape instead.
+    const watcherPath = require.resolve('../out/watcher');
+    const content = fs.readFileSync(watcherPath, 'utf-8');
+    assertIncludes(content, 'exports.startWatcher');
+    assertIncludes(content, 'exports.stopWatcher');
+    assertIncludes(content, 'exports.isWatcherRunning');
+});
+
+// ======================================================================
 // SUMMARY
 // ======================================================================
 console.log(`\n${'═'.repeat(50)}`);

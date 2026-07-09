@@ -126,7 +126,9 @@ function extractSessionId(filePath: string): string {
             return parts[i];
         }
     }
-    return path.basename(filePath, path.extname(filePath));
+    // Normalize to forward slashes so path.basename works cross-platform
+    const normalized = filePath.replace(/\\/g, '/');
+    return path.basename(normalized, path.extname(normalized));
 }
 
 async function handleFileEvent(filePath: string, event: 'change' | 'create'): Promise<void> {
