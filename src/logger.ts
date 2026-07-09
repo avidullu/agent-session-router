@@ -78,7 +78,9 @@ export function initLogger(diagnosticsDir: string): void {
     _diagnosticsDir = diagnosticsDir;
     _diagnosticsPath = path.join(diagnosticsDir, '.router', 'diagnostics.jsonl');
     if (vscodeApi) {
-        _outputChannel = vscodeApi.window.createOutputChannel('Agent Session Router', { log: true });
+        _outputChannel = vscodeApi.window.createOutputChannel('Agent Session Router', {
+            log: true,
+        });
         _outputChannel.show(true);
     }
     ensureDiagnosticsDir();
@@ -88,7 +90,9 @@ export function initLogger(diagnosticsDir: string): void {
 export function getOutputChannel(): any {
     if (!_outputChannel) {
         if (vscodeApi) {
-            _outputChannel = vscodeApi.window.createOutputChannel('Agent Session Router', { log: true });
+            _outputChannel = vscodeApi.window.createOutputChannel('Agent Session Router', {
+                log: true,
+            });
         } else {
             return console;
         }
@@ -137,9 +141,15 @@ function log(entry: DiagnosticEntry): void {
     } else {
         // Fallback for non-VS Code environments
         switch (entry.level) {
-            case 'error': console.error(consoleMsg); break;
-            case 'warn': console.warn(consoleMsg); break;
-            default: console.log(consoleMsg); break;
+            case 'error':
+                console.error(consoleMsg);
+                break;
+            case 'warn':
+                console.warn(consoleMsg);
+                break;
+            default:
+                console.log(consoleMsg);
+                break;
         }
     }
 
@@ -361,4 +371,3 @@ export function getDiagnosticsPath(): string | undefined {
 export function getDiagnosticsDir(): string | undefined {
     return _diagnosticsDir;
 }
-

@@ -44,10 +44,14 @@ async function* discoverContinueSessions(): AsyncIterable<DiscoveredSession> {
                             sizeBytes: stat.size,
                             mtimeMs: stat.mtimeMs,
                         });
-                    } catch { /* skip */ }
+                    } catch {
+                        /* skip */
+                    }
                 }
             }
-        } catch { /* skip */ }
+        } catch {
+            /* skip */
+        }
     };
     collect(sessionsDir);
 

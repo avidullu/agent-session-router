@@ -5,7 +5,13 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { discoverAllSessions, exportAllSessions, exportSession, resetExportCache, resolveOutputDir } from './router';
+import {
+    discoverAllSessions,
+    exportAllSessions,
+    exportSession,
+    resetExportCache,
+    resolveOutputDir,
+} from './router';
 import { getConfig } from './config';
 import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
@@ -41,14 +47,16 @@ function displayDiscoverySummary(
     // Per-kind summary
     for (const [kind, list] of [...groups.entries()].sort((a, b) => b[1].length - a[1].length)) {
         const kindSize = list.reduce((sum, s) => sum + s.sizeBytes, 0);
-        const timestamps = list.map(s => s.mtimeMs).sort((a, b) => a - b);
+        const timestamps = list.map((s) => s.mtimeMs).sort((a, b) => a - b);
         const oldest = new Date(timestamps[0]).toISOString().slice(0, 10);
         const newest = new Date(timestamps[timestamps.length - 1]).toISOString().slice(0, 10);
         const avgSize = kindSize / list.length;
 
         channel.appendLine(`  ┌─ ${kind}`);
         channel.appendLine(`  │  Sessions:  ${list.length}`);
-        channel.appendLine(`  │  Size:      ${(kindSize / 1024 / 1024).toFixed(1)} MB (avg ${(avgSize / 1024).toFixed(0)} KB/session)`);
+        channel.appendLine(
+            `  │  Size:      ${(kindSize / 1024 / 1024).toFixed(1)} MB (avg ${(avgSize / 1024).toFixed(0)} KB/session)`,
+        );
         channel.appendLine(`  │  Span:      ${oldest} → ${newest}`);
         channel.appendLine(`  │  Source:    ${list[0].sourceName}`);
         channel.appendLine(`  └─ Sample:   ${list[0].filePath}`);
@@ -148,7 +156,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                     const sessions = await discoverAllSessions(progress);
                     if (sessions.length === 0) {
                         vscode.window.showInformationMessage(
-                            'Agent Session Router: No agent sessions found.'
+                            'Agent Session Router: No agent sessions found.',
                         );
                         return;
                     }
@@ -158,14 +166,14 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                     displayDiscoverySummary(channel, sessions);
                     channel.show();
 
-                    const kinds = [...new Set(sessions.map(s => s.sourceKind))].join(', ');
+                    const kinds = [...new Set(sessions.map((s) => s.sourceKind))].join(', ');
                     const totalSize = sessions.reduce((sum, s) => sum + s.sizeBytes, 0);
                     vscode.window.showInformationMessage(
-                        `Agent Session Router: ${sessions.length} sessions across ${kinds} (${(totalSize / 1024 / 1024).toFixed(1)} MB). See output for details.`
+                        `Agent Session Router: ${sessions.length} sessions across ${kinds} (${(totalSize / 1024 / 1024).toFixed(1)} MB). See output for details.`,
                     );
-                }
+                },
             );
-        })
+        }),
     );
 
     // Export all sessions
@@ -182,7 +190,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
 
                     if (records.length === 0) {
                         vscode.window.showInformationMessage(
-                            'Agent Session Router: No sessions exported.'
+                            'Agent Session Router: No sessions exported.',
                         );
                         return;
                     }
@@ -195,11 +203,11 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                     channel.show();
 
                     vscode.window.showInformationMessage(
-                        `Agent Session Router: Exported ${records.length} sessions to Markdown.`
+                        `Agent Session Router: Exported ${records.length} sessions to Markdown.`,
                     );
-                }
+                },
             );
-        })
+        }),
     );
 
     // Export selected session
@@ -248,14 +256,14 @@ export function registerCommands(context: vscode.ExtensionContext): void {
 
             if (record) {
                 vscode.window.showInformationMessage(
-                    `Agent Session Router: Exported to ${record.markdownPath}`
+                    `Agent Session Router: Exported to ${record.markdownPath}`,
                 );
             } else {
                 vscode.window.showWarningMessage(
-                    'Agent Session Router: Could not extract session from the selected file.'
+                    'Agent Session Router: Could not extract session from the selected file.',
                 );
             }
-        })
+        }),
     );
 
     // Show configuration
@@ -287,7 +295,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             channel.appendLine('  Raw config:');
             channel.appendLine(JSON.stringify(config, null, 2));
             channel.show();
-        })
+        }),
     );
 
     // Set output directory
@@ -343,7 +351,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                 const browseError = validateOutputDir(newDir);
                 if (browseError) {
                     vscode.window.showErrorMessage(
-                        `Agent Session Router: Cannot use this folder. ${browseError}`
+                        `Agent Session Router: Cannot use this folder. ${browseError}`,
                     );
                     return;
                 }
@@ -369,7 +377,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                 const finalError = validateOutputDir(newDir);
                 if (finalError) {
                     vscode.window.showErrorMessage(
-                        `Agent Session Router: Cannot save setting. ${finalError}`
+                        `Agent Session Router: Cannot save setting. ${finalError}`,
                     );
                     return;
                 }
@@ -402,7 +410,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                     ? `Agent Session Router: Output directory set to ${path.resolve(newDir)}`
                     : 'Agent Session Router: Output directory reset to auto-detect.',
             );
-        })
+        }),
     );
 
     // Export diagnostic bundle
@@ -421,16 +429,24 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                         channel.appendLine('Diagnostic Bundle Created');
                         channel.appendLine('═══════════════════════════');
                         channel.appendLine(`Location: ${bundle.zipPath}`);
-                        channel.appendLine(`Diagnostics entries: ${bundle.summary.diagnosticsLines}`);
+                        channel.appendLine(
+                            `Diagnostics entries: ${bundle.summary.diagnosticsLines}`,
+                        );
                         channel.appendLine(`Source samples: ${bundle.summary.sourceSamples}`);
                         channel.appendLine(`Config included: ${bundle.summary.configIncluded}`);
-                        channel.appendLine(`Total size: ${(bundle.summary.totalSizeBytes / 1024).toFixed(1)} KB`);
+                        channel.appendLine(
+                            `Total size: ${(bundle.summary.totalSizeBytes / 1024).toFixed(1)} KB`,
+                        );
                         channel.appendLine('');
-                        channel.appendLine('Share this folder with your AI agent or attach to a GitHub issue:');
+                        channel.appendLine(
+                            'Share this folder with your AI agent or attach to a GitHub issue:',
+                        );
                         channel.appendLine(`  ${bundle.zipPath}`);
                         channel.appendLine('');
                         channel.appendLine('To inspect errors:');
-                        channel.appendLine(`  cat "${bundle.zipPath}/diagnostics.jsonl" | jq 'select(.level=="error")'`);
+                        channel.appendLine(
+                            `  cat "${bundle.zipPath}/diagnostics.jsonl" | jq 'select(.level=="error")'`,
+                        );
                         channel.show();
 
                         // Offer to reveal in file explorer
@@ -440,7 +456,10 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                             'Copy Path',
                         );
                         if (action === 'Reveal') {
-                            vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(bundle.zipPath));
+                            vscode.commands.executeCommand(
+                                'revealFileInOS',
+                                vscode.Uri.file(bundle.zipPath),
+                            );
                         } else if (action === 'Copy Path') {
                             vscode.env.clipboard.writeText(bundle.zipPath);
                         }
@@ -449,26 +468,26 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                         channel.appendLine(`ERROR creating diagnostic bundle: ${error.message}`);
                         channel.show();
                         vscode.window.showErrorMessage(
-                            `Agent Session Router: Failed to create diagnostic bundle. ${error.message}`
+                            `Agent Session Router: Failed to create diagnostic bundle. ${error.message}`,
                         );
                     }
-                }
+                },
             );
-        })
+        }),
     );
 
     // Start watcher
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStart', async () => {
             await startWatcher();
-        })
+        }),
     );
 
     // Stop watcher
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStop', async () => {
             await stopWatcher();
-        })
+        }),
     );
 
     // Reset in-memory export cache
@@ -478,8 +497,8 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             channel.appendLine('Export cache cleared. Next export will re-process all sessions.');
             channel.show();
             vscode.window.showInformationMessage(
-                'Agent Session Router: State reset. All cached exports cleared.'
+                'Agent Session Router: State reset. All cached exports cleared.',
             );
-        })
+        }),
     );
 }

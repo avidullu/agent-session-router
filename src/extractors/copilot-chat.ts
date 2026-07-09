@@ -98,7 +98,7 @@ function extractTranscriptFormat(filePath: string, sessionId: string): Extracted
 
     try {
         const raw = fs.readFileSync(filePath, 'utf-8');
-        const lines = raw.split('\n').filter(line => line.trim());
+        const lines = raw.split('\n').filter((line) => line.trim());
 
         for (const line of lines) {
             try {
@@ -107,8 +107,10 @@ function extractTranscriptFormat(filePath: string, sessionId: string): Extracted
                 switch (entry.type) {
                     case 'session.start':
                         if (entry.data) {
-                            if (entry.data.copilotVersion) metadata.copilot_version = entry.data.copilotVersion;
-                            if (entry.data.vscodeVersion) metadata.vscode_version = entry.data.vscodeVersion;
+                            if (entry.data.copilotVersion)
+                                metadata.copilot_version = entry.data.copilotVersion;
+                            if (entry.data.vscodeVersion)
+                                metadata.vscode_version = entry.data.vscodeVersion;
                             if (entry.data.startTime) metadata.start_time = entry.data.startTime;
                         }
                         break;
@@ -140,7 +142,9 @@ function extractTranscriptFormat(filePath: string, sessionId: string): Extracted
                                 if (tr.arguments) {
                                     try {
                                         const args = JSON.parse(tr.arguments);
-                                        toolLines.push(`Arguments: ${JSON.stringify(args, null, 2)}`);
+                                        toolLines.push(
+                                            `Arguments: ${JSON.stringify(args, null, 2)}`,
+                                        );
                                     } catch {
                                         toolLines.push(`Arguments: ${tr.arguments}`);
                                     }
@@ -218,19 +222,21 @@ function extractDebugLogFormat(filePath: string, sessionId: string): ExtractedSe
 
     try {
         const raw = fs.readFileSync(filePath, 'utf-8');
-        const lines = raw.split('\n').filter(line => line.trim());
+        const lines = raw.split('\n').filter((line) => line.trim());
 
         for (const line of lines) {
             try {
                 const entry: DebugLogEntry = JSON.parse(line);
 
                 if (entry.type === 'session_start' && entry.attrs) {
-                    if (entry.attrs.copilotVersion) metadata.copilot_version = entry.attrs.copilotVersion;
-                    if (entry.attrs.vscodeVersion) metadata.vscode_version = entry.attrs.vscodeVersion;
+                    if (entry.attrs.copilotVersion)
+                        metadata.copilot_version = entry.attrs.copilotVersion;
+                    if (entry.attrs.vscodeVersion)
+                        metadata.vscode_version = entry.attrs.vscodeVersion;
                     continue;
                 }
 
-                let role = entry.role || entry.message?.role || entry.name || entry.type || '';
+                const role = entry.role || entry.message?.role || entry.name || entry.type || '';
                 let text = '';
 
                 const content = entry.message?.content || entry.content;
@@ -238,9 +244,11 @@ function extractDebugLogFormat(filePath: string, sessionId: string): ExtractedSe
                     text = content;
                 } else if (Array.isArray(content)) {
                     text = content
-                        .filter((block): block is { type: string; text?: string } =>
-                            typeof block === 'object' && block !== null)
-                        .map(block => block.text || '')
+                        .filter(
+                            (block): block is { type: string; text?: string } =>
+                                typeof block === 'object' && block !== null,
+                        )
+                        .map((block) => block.text || '')
                         .join('\n');
                 }
 

@@ -26,7 +26,17 @@ function getCodyStorageRoots(): string[] {
     }
     const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
     roots.push(path.join(configDir, 'Code', 'User', 'globalStorage', CODY_EXTENSION_ID));
-    roots.push(path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'globalStorage', CODY_EXTENSION_ID));
+    roots.push(
+        path.join(
+            os.homedir(),
+            'Library',
+            'Application Support',
+            'Code',
+            'User',
+            'globalStorage',
+            CODY_EXTENSION_ID,
+        ),
+    );
     return roots;
 }
 
@@ -53,10 +63,14 @@ async function* discoverCodySessions(): AsyncIterable<DiscoveredSession> {
                                 sizeBytes: stat.size,
                                 mtimeMs: stat.mtimeMs,
                             });
-                        } catch { /* skip */ }
+                        } catch {
+                            /* skip */
+                        }
                     }
                 }
-            } catch { /* skip */ }
+            } catch {
+                /* skip */
+            }
         };
         collect(root, 0);
         for (const session of results) yield session;

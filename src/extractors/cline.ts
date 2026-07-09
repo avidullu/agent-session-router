@@ -79,9 +79,11 @@ function extractCline(filePath: string): ExtractedSession {
                         text = mContent;
                     } else if (Array.isArray(mContent)) {
                         text = mContent
-                            .filter((b): b is { type: string; text?: string } =>
-                                typeof b === 'object' && b !== null)
-                            .map(b => b.text || '')
+                            .filter(
+                                (b): b is { type: string; text?: string } =>
+                                    typeof b === 'object' && b !== null,
+                            )
+                            .map((b) => b.text || '')
                             .join('\n');
                     }
                     role = item.message.role || role;

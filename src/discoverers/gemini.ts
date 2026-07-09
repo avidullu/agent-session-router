@@ -65,7 +65,9 @@ async function* discoverGeminiAntigravitySessions(): AsyncIterable<DiscoveredSes
 
             // Determine which variant this is for the source name
             const isIde = brainRoot.includes('antigravity-ide');
-            const sourceName = isIde ? 'gemini-antigravity-ide-windows' : 'gemini-antigravity-windows';
+            const sourceName = isIde
+                ? 'gemini-antigravity-ide-windows'
+                : 'gemini-antigravity-windows';
 
             yield {
                 sourceName,

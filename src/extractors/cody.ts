@@ -14,7 +14,10 @@ import { registerExtractor } from './index';
 
 function extractCody(filePath: string): ExtractedSession {
     const metadata: Record<string, unknown> = {
-        session_id: path.basename(path.dirname(filePath)) + '_' + path.basename(filePath, path.extname(filePath)),
+        session_id:
+            path.basename(path.dirname(filePath)) +
+            '_' +
+            path.basename(filePath, path.extname(filePath)),
         source_file: filePath,
     };
     const messages: SessionMessage[] = [];
@@ -32,7 +35,7 @@ function extractCody(filePath: string): ExtractedSession {
             if (!Array.isArray(list)) continue;
 
             for (const item of list) {
-                let role = item.role || item.speaker || 'message';
+                const role = item.role || item.speaker || 'message';
                 let text = item.content || item.text || item.message || '';
                 const ts = item.timestamp || item.ts || item.createdAt;
 
@@ -56,7 +59,9 @@ function extractCody(filePath: string): ExtractedSession {
             }
             if (messages.length > 0) break;
         }
-    } catch { /* parse failed */ }
+    } catch {
+        /* parse failed */
+    }
 
     return { metadata, messages };
 }

@@ -33,8 +33,8 @@ async function ensureChokidar(): Promise<typeof import('chokidar')> {
     }
     if (!chokidar) {
         throw new Error(
-            'chokidar is not installed. The watcher will use VS Code\'s built-in ' +
-            'file watcher as a fallback. For better performance, run: npm install chokidar'
+            "chokidar is not installed. The watcher will use VS Code's built-in " +
+                'file watcher as a fallback. For better performance, run: npm install chokidar',
         );
     }
     return chokidar;
@@ -66,15 +66,32 @@ function getWatchPaths(): string[] {
     const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
 
     if (appData) {
-        paths.push(path.join(appData, 'Code', 'User', 'globalStorage',
-            'vizards.deepseek-v4-for-copilot', 'request-dumps'));
+        paths.push(
+            path.join(
+                appData,
+                'Code',
+                'User',
+                'globalStorage',
+                'vizards.deepseek-v4-for-copilot',
+                'request-dumps',
+            ),
+        );
         paths.push(path.join(appData, 'Code', 'User', 'workspaceStorage'));
     }
 
     paths.push(path.join(configDir, 'Code', 'User', 'workspaceStorage'));
-    paths.push(path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'workspaceStorage'));
+    paths.push(
+        path.join(
+            os.homedir(),
+            'Library',
+            'Application Support',
+            'Code',
+            'User',
+            'workspaceStorage',
+        ),
+    );
 
-    return paths.filter(p => fs.existsSync(p));
+    return paths.filter((p) => fs.existsSync(p));
 }
 
 // ---------------------------------------------------------------------------
@@ -129,10 +146,17 @@ async function handleFileEvent(filePath: string, event: 'change' | 'create'): Pr
 
             logWatcherEvent(event, filePath, { sourceKind, sessionId, sizeBytes: stat.size });
 
-            await exportSession({
-                sourceName, sourceKind, filePath, sessionId,
-                sizeBytes: stat.size, mtimeMs: stat.mtimeMs,
-            }, resolveOutputDir(config));
+            await exportSession(
+                {
+                    sourceName,
+                    sourceKind,
+                    filePath,
+                    sessionId,
+                    sizeBytes: stat.size,
+                    mtimeMs: stat.mtimeMs,
+                },
+                resolveOutputDir(config),
+            );
         } catch (err) {
             logWatcherEvent('error', filePath, {
                 error: err instanceof Error ? err.message : String(err),
@@ -172,7 +196,7 @@ export async function startWatcher(): Promise<void> {
     if (chokidarLib) {
         // ── Chokidar path (full-featured) ──
         state.watcher = chokidarLib.watch(watchPaths, {
-            ignored: [/(^|[\/\\])\.\./, /node_modules/, /\.git/, '**/models.json'],
+            ignored: [/(^|[\\/])\.\./, /node_modules/, /\.git/, '**/models.json'],
             persistent: true,
             ignoreInitial: true,
             awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
@@ -186,30 +210,29 @@ export async function startWatcher(): Promise<void> {
         });
 
         vscode.window.showInformationMessage(
-            `Agent Session Router: Watching ${watchPaths.length} directories (chokidar).`
+            `Agent Session Router: Watching ${watchPaths.length} directories (chokidar).`,
         );
     } else {
         // ── VS Code FileSystemWatcher fallback ──
         const disposables: vscode.Disposable[] = [];
         for (const watchPath of watchPaths) {
-            const pattern = new vscode.RelativePattern(
-                vscode.Uri.file(watchPath),
-                '**/*'
-            );
+            const pattern = new vscode.RelativePattern(vscode.Uri.file(watchPath), '**/*');
             const fsw = vscode.workspace.createFileSystemWatcher(pattern);
-            fsw.onDidCreate(uri => handleFileEvent(uri.fsPath, 'create'));
-            fsw.onDidChange(uri => handleFileEvent(uri.fsPath, 'change'));
+            fsw.onDidCreate((uri) => handleFileEvent(uri.fsPath, 'create'));
+            fsw.onDidChange((uri) => handleFileEvent(uri.fsPath, 'change'));
             disposables.push(fsw);
         }
 
         // Wrap disposable array as a pseudo-watcher
         state.watcher = {
-            close: async () => { for (const d of disposables) d.dispose(); },
+            close: async () => {
+                for (const d of disposables) d.dispose();
+            },
         } as any;
 
         vscode.window.showInformationMessage(
             `Agent Session Router: Watching ${watchPaths.length} directories (VS Code fallback). ` +
-            'Install chokidar for better performance.'
+                'Install chokidar for better performance.',
         );
     }
 

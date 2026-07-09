@@ -135,7 +135,11 @@
         "watch": "tsc -watch -p ./",
         "lint": "eslint src --ext ts",
         "pretest": "npm run compile",
-        "test": "node test/contract-conformance.js && node test/router-index-test.js && node test/coverage-suite.js && node test/smoke-test.js"
+        "test": "node test/contract-conformance.js && node test/router-index-test.js && node test/coverage-suite.js && node test/smoke-test.js",
+        "lint:check": "eslint src --ext ts",
+        "format": "prettier --write src/**/*.ts",
+        "format:check": "prettier --check src/**/*.ts",
+        "ci:check": "npm run lint:check ; npm run format:check ; npm run compile ; npm test"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
@@ -144,6 +148,7 @@
         "@typescript-eslint/parser": "^7.0.0",
         "c8": "^11.0.0",
         "eslint": "^8.0.0",
+        "prettier": "^3.9.4",
         "typescript": "^5.4.0"
     },
     "dependencies": {

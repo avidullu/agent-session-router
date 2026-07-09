@@ -22,7 +22,9 @@ export function writeRouterIndex(outputDir: string, records: ExportRecord[]): vo
     const byKey = new Map<string, unknown>();
     const order: string[] = [];
     const upsert = (rec: unknown): void => {
-        const key = indexIdentityKey(rec as { source?: string; source_file?: string; metadata?: unknown });
+        const key = indexIdentityKey(
+            rec as { source?: string; source_file?: string; metadata?: unknown },
+        );
         if (!byKey.has(key)) order.push(key);
         byKey.set(key, rec);
     };

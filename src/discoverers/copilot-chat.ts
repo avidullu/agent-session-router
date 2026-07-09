@@ -25,7 +25,16 @@ function getWorkspaceStorageRoots(): string[] {
     const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
     roots.push(path.join(configDir, 'Code', 'User', 'workspaceStorage'));
 
-    roots.push(path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'workspaceStorage'));
+    roots.push(
+        path.join(
+            os.homedir(),
+            'Library',
+            'Application Support',
+            'Code',
+            'User',
+            'workspaceStorage',
+        ),
+    );
 
     return roots;
 }

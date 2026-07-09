@@ -15,7 +15,10 @@ import { registerExtractor } from './index';
 
 function extractAider(filePath: string): ExtractedSession {
     const metadata: Record<string, unknown> = {
-        session_id: path.basename(path.dirname(filePath)) + '_' + path.basename(filePath, path.extname(filePath)),
+        session_id:
+            path.basename(path.dirname(filePath)) +
+            '_' +
+            path.basename(filePath, path.extname(filePath)),
         source_file: filePath,
     };
     const messages: SessionMessage[] = [];
@@ -25,7 +28,7 @@ function extractAider(filePath: string): ExtractedSession {
 
         if (filePath.endsWith('.jsonl') || filePath.includes('input')) {
             // JSONL format: {role, content} per line
-            for (const line of raw.split('\n').filter(l => l.trim())) {
+            for (const line of raw.split('\n').filter((l) => l.trim())) {
                 try {
                     const entry = JSON.parse(line);
                     let text = '';
@@ -41,27 +44,35 @@ function extractAider(filePath: string): ExtractedSession {
                             timestamp: entry.timestamp,
                         });
                     }
-                } catch { /* skip malformed */ }
+                } catch {
+                    /* skip malformed */
+                }
             }
         } else {
             // Markdown format: ## role blocks
-            const sections = raw.split(/^## /m).filter(s => s.trim());
+            const sections = raw.split(/^## /m).filter((s) => s.trim());
             for (const section of sections) {
                 const newlineIdx = section.indexOf('\n');
-                const heading = newlineIdx > 0 ? section.slice(0, newlineIdx).trim() : section.trim();
+                const heading =
+                    newlineIdx > 0 ? section.slice(0, newlineIdx).trim() : section.trim();
                 const body = newlineIdx > 0 ? section.slice(newlineIdx + 1).trim() : '';
 
                 // Parse role from heading (e.g., "user", "assistant", "AI")
-                const role = heading.toLowerCase().includes('user') ? 'user'
-                    : heading.toLowerCase().includes('assistant') || heading.toLowerCase().includes('ai') ? 'assistant'
-                    : 'message';
+                const role = heading.toLowerCase().includes('user')
+                    ? 'user'
+                    : heading.toLowerCase().includes('assistant') ||
+                        heading.toLowerCase().includes('ai')
+                      ? 'assistant'
+                      : 'message';
 
                 if (body) {
                     messages.push({ role, text: body });
                 }
             }
         }
-    } catch { /* parse failed */ }
+    } catch {
+        /* parse failed */
+    }
 
     return { metadata, messages };
 }
