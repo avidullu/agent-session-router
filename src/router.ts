@@ -57,6 +57,11 @@ autoLoadModules('extractors');
 /** In-memory cache of previous export records (keyed by filePath). */
 const exportCache = new Map<string, ExportRecord>();
 
+export type ExportOutcome =
+    | { status: 'exported'; record: ExportRecord }
+    | { status: 'skipped'; record: ExportRecord | null }
+    | { status: 'failed'; record: null };
+
 export function resetExportCache(): void {
     exportCache.clear();
 }
@@ -112,6 +117,14 @@ export async function exportSession(
     session: DiscoveredSession,
     outputDir: string,
 ): Promise<ExportRecord | null> {
+    const outcome = await exportSessionWithOutcome(session, outputDir);
+    return outcome.record;
+}
+
+export async function exportSessionWithOutcome(
+    session: DiscoveredSession,
+    outputDir: string,
+): Promise<ExportOutcome> {
     const extractor = getExtractor(session.sourceKind);
     if (!extractor) {
         logSkip(
@@ -120,7 +133,7 @@ export async function exportSession(
             session.sessionId,
             `No extractor registered for kind: ${session.sourceKind}`,
         );
-        return null;
+        return { status: 'skipped', record: null };
     }
 
     // Check cache for unchanged files
@@ -132,7 +145,7 @@ export async function exportSession(
             session.sessionId,
             'Unchanged since last export (cached)',
         );
-        return cached;
+        return { status: 'skipped', record: cached };
     }
 
     // Extract
@@ -155,7 +168,7 @@ export async function exportSession(
             /* file may not be readable */
         }
         logExtractError(session.sourceKind, session.filePath, session.sessionId, error, snippet);
-        return null;
+        return { status: 'failed', record: null };
     }
     extractDone();
 
@@ -166,7 +179,7 @@ export async function exportSession(
             session.sessionId,
             'No messages extracted (empty session)',
         );
-        return null;
+        return { status: 'skipped', record: null };
     }
 
     logExtractResult(
@@ -184,7 +197,7 @@ export async function exportSession(
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         logExtractError(session.sourceKind, session.filePath, session.sessionId, error);
-        return null;
+        return { status: 'failed', record: null };
     }
 
     // Determine output path — archive/{source_name}/{stem}.md, where the stem
@@ -226,7 +239,7 @@ export async function exportSession(
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         logWriteError(session.sourceKind, session.sessionId, markdownPath, error);
-        return null;
+        return { status: 'failed', record: null };
     }
 
     const record: ExportRecord = {
@@ -245,7 +258,7 @@ export async function exportSession(
     };
 
     exportCache.set(session.filePath, record);
-    return record;
+    return { status: 'exported', record };
 }
 
 export async function exportAllSessions(
@@ -266,7 +279,7 @@ export async function exportAllSessions(
     const total = sessions.length;
     let completed = 0;
     let exported = 0;
-    const skipped = 0;
+    let skipped = 0;
     let failed = 0;
     const startTime = Date.now();
 
@@ -276,15 +289,13 @@ export async function exportAllSessions(
             increment: 100 / total,
         });
 
-        const record = await exportSession(session, outputDir);
-        if (record) {
-            records.push(record);
-            exported++;
-        } else {
-            // Check if it was skipped (cached) or failed
-            // The logger already recorded the reason
-            failed++;
+        const outcome = await exportSessionWithOutcome(session, outputDir);
+        if (outcome.record) {
+            records.push(outcome.record);
         }
+        if (outcome.status === 'exported') exported++;
+        if (outcome.status === 'skipped') skipped++;
+        if (outcome.status === 'failed') failed++;
         completed++;
     }
 

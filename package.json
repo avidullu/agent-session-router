@@ -135,7 +135,7 @@
         "watch": "tsc -watch -p ./",
         "lint": "eslint src --ext ts",
         "pretest": "npm run compile",
-        "test": "node test/contract-conformance.js && node test/router-index-test.js && node test/coverage-suite.js && node test/smoke-test.js",
+        "test": "node test/contract-conformance.js && node test/router-index-test.js && node test/router-export-outcomes.js && node test/coverage-suite.js && node test/smoke-test.js",
         "lint:check": "eslint src --ext ts",
         "format": "prettier --write src/**/*.ts",
         "format:check": "prettier --check src/**/*.ts",
