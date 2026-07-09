@@ -924,9 +924,20 @@ test('watcher: determineSourceName', () => {
 
 // ── extractSessionId ──
 test('watcher: extractSessionId from UUID in path', () => {
+    // Use forward slashes — the function normalizes backslashes anyway.
+    // (Windows paths with \\t, \\U, \\x etc. trigger JS escape sequences.)
     assertEqual(
-        extractSessionId('C:\\Users\\x\\ws\\github.copilot-chat\\transcripts\\a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl'),
+        extractSessionId('C:/Users/x/AppData/Roaming/Code/User/workspaceStorage/abc/github.copilot-chat/transcripts/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl'),
         'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    );
+});
+
+test('watcher: extractSessionId from Windows path with backslashes', () => {
+    // Use String.raw to avoid escape-sequence mangling on \\ sequences
+    const winPath = String.raw`C:\Users\x\AppData\Roaming\Code\User\workspaceStorage\abc\github.copilot-chat\transcripts\f1e2d3c4-b5a6-7890-cdef-1234567890ab.jsonl`;
+    assertEqual(
+        extractSessionId(winPath),
+        'f1e2d3c4-b5a6-7890-cdef-1234567890ab',
     );
 });
 
