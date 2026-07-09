@@ -13,7 +13,7 @@ import { DiscoveredSession, ExportRecord } from './types';
 import { getDiscoverer } from './discoverers/index';
 import { getExtractor } from './extractors/index';
 import { renderMarkdown } from './renderers/markdown';
-import { sha256File, isoNow, canReuseRecord } from './utils';
+import { sha256File, isoNow, canReuseRecord, tailSha256File } from './utils';
 import { archiveStem, isoSecondsUtc, repoRelativeMarkdown } from './contract';
 import { writeRouterIndex } from './router-index';
 import { getConfig, Config } from './config';
@@ -138,7 +138,19 @@ export async function exportSessionWithOutcome(
 
     // Check cache for unchanged files
     const cached = exportCache.get(session.filePath) ?? null;
-    if (cached && canReuseRecord(cached, session.sizeBytes, session.mtimeMs)) {
+    let cachedTailSha256: string | undefined;
+    if (
+        cached?.tailSha256 &&
+        cached.sizeBytes === session.sizeBytes &&
+        cached.mtimeMs === session.mtimeMs
+    ) {
+        try {
+            cachedTailSha256 = tailSha256File(session.filePath);
+        } catch {
+            cachedTailSha256 = undefined;
+        }
+    }
+    if (cached && canReuseRecord(cached, session.sizeBytes, session.mtimeMs, cachedTailSha256)) {
         logSkip(
             session.sourceKind,
             session.filePath,
@@ -253,6 +265,7 @@ export async function exportSessionWithOutcome(
         markdownPath,
         markdownRel,
         messages: extracted.messages.length,
+        tailSha256: tailSha256File(session.filePath),
         metadata: extracted.metadata,
         exportedAt: isoNow(),
     };

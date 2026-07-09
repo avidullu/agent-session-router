@@ -61,6 +61,8 @@ export interface ExportRecord {
     markdownRel: string;
     /** Number of extracted messages. */
     messages: number;
+    /** Hash of the final source bytes, used only for local reuse hardening. */
+    tailSha256?: string;
     /** Session metadata carried into the index record. */
     metadata: Record<string, unknown>;
     exportedAt: string;

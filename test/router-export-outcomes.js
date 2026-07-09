@@ -110,6 +110,18 @@ function makeSession(tmpDir, name, sourceKind) {
             assert.ok(second.record);
         });
 
+        await test('same-size same-mtime tail changes are re-exported', async () => {
+            router.resetExportCache();
+            const session = makeSession(tmpDir, 'tail-1', 'coverage_success');
+            const first = await router.exportSessionWithOutcome(session, outputDir);
+            fs.writeFileSync(session.filePath, '{"ok":true,"name":"tail-2"}\n', 'utf-8');
+            fs.utimesSync(session.filePath, session.mtimeMs / 1000, session.mtimeMs / 1000);
+            const second = await router.exportSessionWithOutcome(session, outputDir);
+            assert.strictEqual(first.status, 'exported');
+            assert.strictEqual(second.status, 'exported');
+            assert.notStrictEqual(first.record.digest, second.record.digest);
+        });
+
         await test('empty extracted sessions are counted as skipped', async () => {
             router.resetExportCache();
             const outcome = await router.exportSessionWithOutcome(

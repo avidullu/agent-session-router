@@ -3,8 +3,8 @@
 [![CI](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml/badge.svg)](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.90%2B-007ACC)](https://code.visualstudio.com/)
-![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-80%20unit%20tests-blue)
+![Tests](https://img.shields.io/badge/tests-107%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-83%20unit%20tests-blue)
 ![Agents](https://img.shields.io/badge/agents-8%20supported-9cf)
 
 Automatically archive your AI coding sessions. Discovers conversations from
@@ -13,7 +13,7 @@ and more — exports them as searchable Markdown files into your
 [Agent Sessions](https://github.com/avidullu/agent-sessions) archive.
 
 > **🎉 Public Launch** — v0.1.0 is stable and ready for daily use.
-> 103 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
+> 107 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
 
 ---
 
@@ -39,7 +39,7 @@ The script will:
 1. ✅ Verify Node.js ≥ 20
 2. ✅ Install dependencies (`npm ci`)
 3. ✅ Compile TypeScript
-4. ✅ Run the full 103-test suite (fails fast if anything is broken)
+4. ✅ Run the full 107-test suite (fails fast if anything is broken)
 5. ✅ Package the `.vsix`
 6. ✅ Install into VS Code
 7. ✅ Print the recommended settings for the user's `settings.json`
@@ -84,11 +84,11 @@ Markdown files that the Agent Sessions hub can index.
 
 | Metric                      | Value                               |
 | --------------------------- | ----------------------------------- |
-| **Total tests**             | **103** (0 failures)                |
-| Unit tests (coverage suite) | 80                                  |
+| **Total tests**             | **107** (0 failures)                |
+| Unit tests (coverage suite) | 83                                  |
 | Contract conformance        | 6                                   |
 | Router-index tests          | 6                                   |
-| Router export outcome tests | 5                                   |
+| Router export outcome tests | 6                                   |
 | Smoke tests                 | 6                                   |
 | **CI matrix**               | Windows, macOS, Linux × Node 20, 22 |
 | **Linting**                 | ESLint (TypeScript) — 0 errors      |

@@ -9,6 +9,7 @@ import * as os from 'os';
 import { StringDecoder } from 'string_decoder';
 
 const FILE_READ_CHUNK_BYTES = 1024 * 1024;
+const TAIL_HASH_BYTES = 64 * 1024;
 
 /** Compute SHA-256 hex digest of a file. */
 export function sha256File(filePath: string): string {
@@ -23,6 +24,24 @@ export function sha256File(filePath: string): string {
                 h.update(buffer.subarray(0, bytesRead));
             }
         } while (bytesRead > 0);
+    } finally {
+        fs.closeSync(fd);
+    }
+    return h.digest('hex');
+}
+
+/** Compute SHA-256 of the final bytes of a file for cheap reuse hardening. */
+export function tailSha256File(filePath: string, maxBytes = TAIL_HASH_BYTES): string {
+    const h = crypto.createHash('sha256');
+    const stat = fs.statSync(filePath);
+    const bytesToRead = Math.min(stat.size, maxBytes);
+    const fd = fs.openSync(filePath, 'r');
+    try {
+        const buffer = Buffer.allocUnsafe(bytesToRead);
+        if (bytesToRead > 0) {
+            fs.readSync(fd, buffer, 0, bytesToRead, stat.size - bytesToRead);
+            h.update(buffer);
+        }
     } finally {
         fs.closeSync(fd);
     }
@@ -99,10 +118,13 @@ export function toPosixPath(p: string): string {
  * (same file size and mtime as when last exported).
  */
 export function canReuseRecord(
-    prior: { sizeBytes: number; mtimeMs: number } | undefined,
+    prior: { sizeBytes: number; mtimeMs: number; tailSha256?: string } | undefined,
     currentSize: number,
     currentMtimeMs: number,
+    currentTailSha256?: string,
 ): boolean {
     if (!prior) return false;
-    return prior.sizeBytes === currentSize && prior.mtimeMs === currentMtimeMs;
+    if (prior.sizeBytes !== currentSize || prior.mtimeMs !== currentMtimeMs) return false;
+    if (prior.tailSha256 && currentTailSha256 !== prior.tailSha256) return false;
+    return true;
 }

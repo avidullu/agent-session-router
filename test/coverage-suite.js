@@ -33,10 +33,18 @@ function test(name, fn) {
     }
 }
 
-function assertOk(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
-function assertEqual(a, b, msg) { if (a !== b) throw new Error(msg || `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); }
-function assertIncludes(haystack, needle, msg) { if (!haystack.includes(needle)) throw new Error(msg || `expected to include "${needle}"`); }
-function assertType(val, type, msg) { if (typeof val !== type) throw new Error(msg || `expected ${type}, got ${typeof val}`); }
+function assertOk(cond, msg) {
+    if (!cond) throw new Error(msg || 'assertion failed');
+}
+function assertEqual(a, b, msg) {
+    if (a !== b) throw new Error(msg || `expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
+}
+function assertIncludes(haystack, needle, msg) {
+    if (!haystack.includes(needle)) throw new Error(msg || `expected to include "${needle}"`);
+}
+function assertType(val, type, msg) {
+    if (typeof val !== type) throw new Error(msg || `expected ${type}, got ${typeof val}`);
+}
 
 console.log('╔══════════════════════════════════════════╗');
 console.log('║  Comprehensive Coverage Test Suite       ║');
@@ -93,6 +101,18 @@ test('forEachTextLine streams UTF-8 lines across chunk boundaries', () => {
     assertEqual(lines[0], 'alpha');
     assertEqual(lines[1], longLine);
     assertEqual(lines[2], 'omega');
+    fs.unlinkSync(tmp);
+});
+
+test('tailSha256File hashes only the trailing bytes', () => {
+    const tmp = path.join(os.tmpdir(), 'cov-utils-tail.txt');
+    const payload = 'prefix-' + 'x'.repeat(100) + '-tail';
+    fs.writeFileSync(tmp, payload, 'utf-8');
+    const expected = crypto
+        .createHash('sha256')
+        .update(Buffer.from(payload).subarray(-8))
+        .digest('hex');
+    assertEqual(utils.tailSha256File(tmp, 8), expected);
     fs.unlinkSync(tmp);
 });
 
@@ -173,6 +193,18 @@ test('canReuseRecord true when same size+mtime', () => {
     assertOk(utils.canReuseRecord({ sizeBytes: 100, mtimeMs: 200 }, 100, 200));
 });
 
+test('canReuseRecord true when tail hash matches', () => {
+    assertOk(
+        utils.canReuseRecord({ sizeBytes: 100, mtimeMs: 200, tailSha256: 'abc' }, 100, 200, 'abc'),
+    );
+});
+
+test('canReuseRecord false when tail hash differs', () => {
+    assertOk(
+        !utils.canReuseRecord({ sizeBytes: 100, mtimeMs: 200, tailSha256: 'abc' }, 100, 200, 'def'),
+    );
+});
+
 test('canReuseRecord false when size differs', () => {
     assertOk(!utils.canReuseRecord({ sizeBytes: 100, mtimeMs: 200 }, 101, 200));
 });
@@ -202,9 +234,7 @@ const baseCtx = {
 test('renderMarkdown with messages', () => {
     const session = {
         metadata: { session_id: 's1' },
-        messages: [
-            { role: 'user', text: 'Hello world', timestamp: '2026-01-01T00:00:01Z' },
-        ],
+        messages: [{ role: 'user', text: 'Hello world', timestamp: '2026-01-01T00:00:01Z' }],
     };
     const md = renderMarkdown(session, baseCtx);
     assertIncludes(md, '# test-source / s1');
@@ -308,7 +338,9 @@ test('discoverer registry: knownKinds initially empty', () => {
 test('discoverer registry: register and get', () => {
     delete require.cache[require.resolve('../out/discoverers/index')];
     const { registerDiscoverer, getDiscoverer } = require('../out/discoverers/index');
-    const dummyDiscoverer = async function* () { yield null; };
+    const dummyDiscoverer = async function* () {
+        yield null;
+    };
     registerDiscoverer('test_kind_disc', dummyDiscoverer);
     const found = getDiscoverer('test_kind_disc');
     assertEqual(typeof found, 'function');
@@ -362,12 +394,31 @@ test('deepseek: provider-input format (contentParts)', () => {
     const tmpDir = path.join(os.tmpdir(), 'cov-ds-1');
     fs.mkdirSync(tmpDir, { recursive: true });
     const json = {
-        model: { vscodeModelId: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', family: 'deepseek', version: 'v4', maxInputTokens: 100000, maxOutputTokens: 50000 },
+        model: {
+            vscodeModelId: 'deepseek-v4-pro',
+            name: 'DeepSeek V4 Pro',
+            family: 'deepseek',
+            version: 'v4',
+            maxInputTokens: 100000,
+            maxOutputTokens: 50000,
+        },
         messages: [
-            { index: 0, role: 'system', contentParts: [{ index: 0, type: 'text', value: 'You are a helpful assistant.' }] },
+            {
+                index: 0,
+                role: 'system',
+                contentParts: [{ index: 0, type: 'text', value: 'You are a helpful assistant.' }],
+            },
             { index: 1, role: 'user', contentParts: [{ index: 0, type: 'text', value: 'Hello!' }] },
-            { index: 2, role: 'assistant', contentParts: [{ index: 0, type: 'text', value: 'Hi there! How can I help?' }] },
-            { index: 3, role: 'user', contentParts: [{ index: 0, type: 'text', value: 'Write code.' }] },
+            {
+                index: 2,
+                role: 'assistant',
+                contentParts: [{ index: 0, type: 'text', value: 'Hi there! How can I help?' }],
+            },
+            {
+                index: 3,
+                role: 'user',
+                contentParts: [{ index: 0, type: 'text', value: 'Write code.' }],
+            },
         ],
         messageStats: { messageCount: 4, roleCounts: { system: 1, user: 2, assistant: 1 } },
         requestKind: 'chat',
@@ -383,9 +434,9 @@ test('deepseek: provider-input format (contentParts)', () => {
     assertEqual(result.metadata.request_kind, 'chat');
     assertIncludes(result.metadata.system_prompt_summary, 'helpful assistant');
     assertOk(result.messages.length >= 3);
-    assertEqual(result.messages.filter(m => m.role === 'user').length, 2);
-    assertEqual(result.messages.filter(m => m.role === 'system').length, 1);
-    assertEqual(result.messages.filter(m => m.role === 'assistant').length, 1);
+    assertEqual(result.messages.filter((m) => m.role === 'user').length, 2);
+    assertEqual(result.messages.filter((m) => m.role === 'system').length, 1);
+    assertEqual(result.messages.filter((m) => m.role === 'assistant').length, 1);
     fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -395,18 +446,28 @@ test('deepseek: provider-input with tool calls', () => {
     const json = {
         model: { vscodeModelId: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
         messages: [
-            { index: 0, role: 'system', contentParts: [{ index: 0, type: 'text', value: 'You are a coding assistant.' }] },
             {
-                index: 1, role: 'assistant', contentParts: [
-                    { index: 0, type: 'text', value: 'Let me read that file.' },
-                ], toolCalls: [
-                    { id: 'call_123', function: { name: 'read_file', arguments: '{"filePath":"/test.ts"}' } },
-                ]
+                index: 0,
+                role: 'system',
+                contentParts: [{ index: 0, type: 'text', value: 'You are a coding assistant.' }],
             },
             {
-                index: 2, role: 'tool', toolCallId: 'call_123', name: 'read_file', contentParts: [
-                    { index: 0, type: 'text', value: 'console.log("hello");' },
-                ]
+                index: 1,
+                role: 'assistant',
+                contentParts: [{ index: 0, type: 'text', value: 'Let me read that file.' }],
+                toolCalls: [
+                    {
+                        id: 'call_123',
+                        function: { name: 'read_file', arguments: '{"filePath":"/test.ts"}' },
+                    },
+                ],
+            },
+            {
+                index: 2,
+                role: 'tool',
+                toolCallId: 'call_123',
+                name: 'read_file',
+                contentParts: [{ index: 0, type: 'text', value: 'console.log("hello");' }],
             },
         ],
     };
@@ -415,11 +476,20 @@ test('deepseek: provider-input with tool calls', () => {
     fs.writeFileSync(filePath, JSON.stringify(json));
     const result = dsExtractor(filePath);
 
-    const toolMsgs = result.messages.filter(m => m.role === 'tool');
+    const toolMsgs = result.messages.filter((m) => m.role === 'tool');
     assertOk(toolMsgs.length >= 2, `expected >=2 tool msgs, got ${toolMsgs.length}`);
-    assertOk(toolMsgs.some(m => m.text.includes('read_file')), 'missing read_file tool call');
-    assertOk(toolMsgs.some(m => m.toolCallId === 'call_123'), 'missing call_123 toolCallId');
-    assertOk(toolMsgs.some(m => m.text.includes('console.log')), 'missing tool result text');
+    assertOk(
+        toolMsgs.some((m) => m.text.includes('read_file')),
+        'missing read_file tool call',
+    );
+    assertOk(
+        toolMsgs.some((m) => m.toolCallId === 'call_123'),
+        'missing call_123 toolCallId',
+    );
+    assertOk(
+        toolMsgs.some((m) => m.text.includes('console.log')),
+        'missing tool result text',
+    );
     fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -450,11 +520,21 @@ test('deepseek: simple format with tool_calls', () => {
     const json = {
         messages: [
             {
-                role: 'assistant', content: '', tool_calls: [
-                    { id: 'call_abc', function: { name: 'execute_command', arguments: '{"command":"ls"}' } },
-                ]
+                role: 'assistant',
+                content: '',
+                tool_calls: [
+                    {
+                        id: 'call_abc',
+                        function: { name: 'execute_command', arguments: '{"command":"ls"}' },
+                    },
+                ],
             },
-            { role: 'tool', tool_call_id: 'call_abc', name: 'execute_command', content: 'file1.txt\nfile2.txt' },
+            {
+                role: 'tool',
+                tool_call_id: 'call_abc',
+                name: 'execute_command',
+                content: 'file1.txt\nfile2.txt',
+            },
         ],
     };
     const filePath = path.join(tmpDir, 'test-session', 'request.json');
@@ -463,7 +543,7 @@ test('deepseek: simple format with tool_calls', () => {
     const result = dsExtractor(filePath);
 
     assertOk(result.messages.length >= 2);
-    assertOk(result.messages.some(m => m.toolCallId === 'call_abc'));
+    assertOk(result.messages.some((m) => m.toolCallId === 'call_abc'));
     fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -501,15 +581,17 @@ test('deepseek: contentParts with mixed types (text + data)', () => {
         model: { name: 'test-model' },
         messages: [
             {
-                index: 0, role: 'user', contentParts: [
+                index: 0,
+                role: 'user',
+                contentParts: [
                     { index: 0, type: 'text', value: 'Look at this image:' },
                     { index: 1, type: 'image_url', value: 'data:image/png;base64,abc' },
-                ]
+                ],
             },
             {
-                index: 1, role: 'assistant', contentParts: [
-                    { index: 0, type: 'text', value: 'I see the image.' },
-                ]
+                index: 1,
+                role: 'assistant',
+                contentParts: [{ index: 0, type: 'text', value: 'I see the image.' }],
             },
         ],
     };
@@ -518,7 +600,7 @@ test('deepseek: contentParts with mixed types (text + data)', () => {
     fs.writeFileSync(filePath, JSON.stringify(json));
     const result = dsExtractor(filePath);
 
-    const userMsg = result.messages.find(m => m.role === 'user');
+    const userMsg = result.messages.find((m) => m.role === 'user');
     assertOk(userMsg, 'missing user message');
     assertIncludes(userMsg.text, 'Look at this image');
     assertOk(!userMsg.text.includes('data:image'), 'should not include image data in text');
@@ -559,7 +641,7 @@ test('copilot: transcript format with session.start', () => {
     assertEqual(result.metadata.vscode_version, '1.127.0');
     assertEqual(result.metadata.session_id, 'abc-123');
     assertOk(result.messages.length >= 2);
-    assertOk(result.messages.some(m => m.text.includes('I found the issue')));
+    assertOk(result.messages.some((m) => m.text.includes('I found the issue')));
     fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -589,11 +671,11 @@ test('copilot: transcript with tool execution + cross-reference', () => {
     fs.writeFileSync(path.join(callDir, 'content.txt'), 'line1\nline2\nline3');
 
     const result = ccExtractor(filePath);
-    const toolMsgs = result.messages.filter(m => m.role === 'tool');
+    const toolMsgs = result.messages.filter((m) => m.role === 'tool');
     assertOk(toolMsgs.length >= 2, `expected >=2 tool msgs, got ${toolMsgs.length}`);
 
     // Should have a tool result message with SUCCESS and the output
-    const resultMsg = toolMsgs.find(m => m.text.includes('Tool result: SUCCESS'));
+    const resultMsg = toolMsgs.find((m) => m.text.includes('Tool result: SUCCESS'));
     assertOk(resultMsg, 'missing tool result SUCCESS message');
     assertIncludes(resultMsg.text, 'line1');
     assertIncludes(resultMsg.text, 'line3');
@@ -616,8 +698,8 @@ test('copilot: transcript tool execution with failure', () => {
     fs.writeFileSync(path.join(transcriptsDir, 'fail-1.jsonl'), transcript);
 
     const result = ccExtractor(path.join(transcriptsDir, 'fail-1.jsonl'));
-    const toolMsgs = result.messages.filter(m => m.role === 'tool');
-    assertOk(toolMsgs.some(m => m.text.includes('Tool result: FAILED')));
+    const toolMsgs = result.messages.filter((m) => m.role === 'tool');
+    assertOk(toolMsgs.some((m) => m.text.includes('Tool result: FAILED')));
     fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -672,7 +754,8 @@ test('copilot: handles malformed JSONL gracefully', () => {
     const transcriptsDir = path.join(tmpDir, 'github.copilot-chat', 'transcripts');
     fs.mkdirSync(transcriptsDir, { recursive: true });
 
-    const bad = '{"type":"session.start","data":{"sessionId":"bad-session-1234"},"timestamp":"t0"}\nnot json\n{"type":"valid"}';
+    const bad =
+        '{"type":"session.start","data":{"sessionId":"bad-session-1234"},"timestamp":"t0"}\nnot json\n{"type":"valid"}';
     fs.writeFileSync(path.join(transcriptsDir, 'bad-session-1234.jsonl'), bad);
 
     const result = ccExtractor(path.join(transcriptsDir, 'bad-session-1234.jsonl'));
@@ -820,7 +903,7 @@ test('logger: logExtractResult, logRender, logWrite, logSkip', () => {
 
     const diagPath = logger.getDiagnosticsPath();
     const content = fs.readFileSync(diagPath, 'utf-8');
-    const lines = content.split('\n').filter(l => l.trim());
+    const lines = content.split('\n').filter((l) => l.trim());
     assertOk(lines.length >= 4, `expected >=4 entries, got ${lines.length}`);
     fs.rmSync(tmpDir, { recursive: true, force: true });
 });
@@ -991,8 +1074,14 @@ test('watcher: isSessionFile rejects non-session files', () => {
 
 // ── determineSourceKind ──
 test('watcher: determineSourceKind deepseek', () => {
-    assertEqual(determineSourceKind('/app/deepseek/request-dumps/file.json'), 'deepseek_request_dump');
-    assertEqual(determineSourceKind('/app/vizards.deepseek-v4/request-dumps/x.json'), 'deepseek_request_dump');
+    assertEqual(
+        determineSourceKind('/app/deepseek/request-dumps/file.json'),
+        'deepseek_request_dump',
+    );
+    assertEqual(
+        determineSourceKind('/app/vizards.deepseek-v4/request-dumps/x.json'),
+        'deepseek_request_dump',
+    );
 });
 
 test('watcher: determineSourceKind copilot default', () => {
@@ -1012,7 +1101,9 @@ test('watcher: extractSessionId from UUID in path', () => {
     // Use forward slashes — the function normalizes backslashes anyway.
     // (Windows paths with \\t, \\U, \\x etc. trigger JS escape sequences.)
     assertEqual(
-        extractSessionId('C:/Users/x/AppData/Roaming/Code/User/workspaceStorage/abc/github.copilot-chat/transcripts/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl'),
+        extractSessionId(
+            'C:/Users/x/AppData/Roaming/Code/User/workspaceStorage/abc/github.copilot-chat/transcripts/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl',
+        ),
         'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     );
 });
@@ -1020,10 +1111,7 @@ test('watcher: extractSessionId from UUID in path', () => {
 test('watcher: extractSessionId from Windows path with backslashes', () => {
     // Use String.raw to avoid escape-sequence mangling on \\ sequences
     const winPath = String.raw`C:\Users\x\AppData\Roaming\Code\User\workspaceStorage\abc\github.copilot-chat\transcripts\f1e2d3c4-b5a6-7890-cdef-1234567890ab.jsonl`;
-    assertEqual(
-        extractSessionId(winPath),
-        'f1e2d3c4-b5a6-7890-cdef-1234567890ab',
-    );
+    assertEqual(extractSessionId(winPath), 'f1e2d3c4-b5a6-7890-cdef-1234567890ab');
 });
 
 test('watcher: extractSessionId falls back to basename', () => {
@@ -1033,7 +1121,9 @@ test('watcher: extractSessionId falls back to basename', () => {
 
 test('watcher: extractSessionId picks last UUID in path', () => {
     assertEqual(
-        extractSessionId('/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222/file.jsonl'),
+        extractSessionId(
+            '/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222/file.jsonl',
+        ),
         '22222222-2222-2222-2222-222222222222',
     );
 });

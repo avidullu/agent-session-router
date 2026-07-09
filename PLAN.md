@@ -76,10 +76,10 @@ Current full test suite:
 | ---------------------- | ----: |
 | Contract conformance   |     6 |
 | Router index           |     6 |
-| Router export outcomes |     5 |
-| Coverage suite         |    80 |
+| Router export outcomes |     6 |
+| Coverage suite         |    83 |
 | Smoke tests            |     6 |
-| Total                  |   103 |
+| Total                  |   107 |
 
 CI runs lint/format plus build-test across Windows, macOS, and Linux on Node 20
 and Node 22. The PR labeler workflow is non-product CI and is currently allowed
