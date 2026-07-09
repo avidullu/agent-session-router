@@ -16,9 +16,9 @@
  *   tool_calls:  Array<{ name, args, toolAction?, toolSummary? }>
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
 import { ExtractedSession, SessionMessage } from '../types';
+import { forEachTextLine } from '../utils';
 import { registerExtractor } from './index';
 
 // ---------------------------------------------------------------------------
@@ -53,15 +53,14 @@ function extractGeminiAntigravity(filePath: string): ExtractedSession {
     const messages: SessionMessage[] = [];
 
     try {
-        const raw = fs.readFileSync(filePath, 'utf-8');
-        const lines = raw.split('\n').filter((line) => line.trim());
+        forEachTextLine(filePath, (line) => {
+            if (!line.trim()) return;
 
-        for (const line of lines) {
             let entry: GeminiEntry;
             try {
                 entry = JSON.parse(line);
             } catch {
-                continue; // skip malformed JSON
+                return; // skip malformed JSON
             }
 
             const source = (entry.source || '').toUpperCase();
@@ -70,7 +69,7 @@ function extractGeminiAntigravity(filePath: string): ExtractedSession {
 
             // ── Session metadata ──
             if (type === 'CONVERSATION_HISTORY' || type === 'EPHEMERAL_MESSAGE') {
-                continue; // system-internal, not user-visible
+                return; // system-internal, not user-visible
             }
 
             // ── User messages ──
@@ -79,7 +78,7 @@ function extractGeminiAntigravity(filePath: string): ExtractedSession {
                 if (text.trim()) {
                     messages.push({ role: 'user', text, timestamp });
                 }
-                continue;
+                return;
             }
 
             // ── Model messages ──
@@ -123,7 +122,7 @@ function extractGeminiAntigravity(filePath: string): ExtractedSession {
                     }
                 }
 
-                continue;
+                return;
             }
 
             // ── Tool execution results ──
@@ -133,9 +132,9 @@ function extractGeminiAntigravity(filePath: string): ExtractedSession {
                     text: entry.content.trim(),
                     timestamp,
                 });
-                continue;
+                return;
             }
-        }
+        });
     } catch {
         // File read failed — return empty
     }

@@ -14,6 +14,7 @@
  */
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -70,6 +71,28 @@ test('sha256File with empty file', () => {
     fs.writeFileSync(tmp, '');
     const h = utils.sha256File(tmp);
     assertEqual(h.length, 64);
+    fs.unlinkSync(tmp);
+});
+
+test('sha256File matches crypto hash for large files', () => {
+    const tmp = path.join(os.tmpdir(), 'cov-utils-sha-large.txt');
+    const payload = `${'a'.repeat(1024 * 1024)}\n${'β'.repeat(600000)}\nend`;
+    fs.writeFileSync(tmp, payload, 'utf-8');
+    const expected = crypto.createHash('sha256').update(payload).digest('hex');
+    assertEqual(utils.sha256File(tmp), expected);
+    fs.unlinkSync(tmp);
+});
+
+test('forEachTextLine streams UTF-8 lines across chunk boundaries', () => {
+    const tmp = path.join(os.tmpdir(), 'cov-utils-lines-large.txt');
+    const longLine = 'β'.repeat(600000);
+    fs.writeFileSync(tmp, `alpha\n${longLine}\r\nomega`, 'utf-8');
+    const lines = [];
+    utils.forEachTextLine(tmp, (line) => lines.push(line));
+    assertEqual(lines.length, 3);
+    assertEqual(lines[0], 'alpha');
+    assertEqual(lines[1], longLine);
+    assertEqual(lines[2], 'omega');
     fs.unlinkSync(tmp);
 });
 
