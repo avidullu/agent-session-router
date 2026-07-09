@@ -659,7 +659,67 @@ test('copilot: handles malformed JSONL gracefully', () => {
 });
 
 // ======================================================================
-// 7. CONFIG
+// 7. GEMINI ANTIGRAVITY EXTRACTOR
+// ======================================================================
+console.log('\n─── extractors/gemini.ts ───');
+
+delete require.cache[require.resolve('../out/extractors/gemini')];
+require('../out/extractors/gemini');
+const geminiExtractor = getExtractor('gemini_antigravity');
+
+test('gemini: derives stable session_id from Antigravity brain path', () => {
+    const tmpDir = path.join(os.tmpdir(), 'cov-gemini-1');
+    const sessionId = 'abcd1234-5678-90ef-abcd-1234567890ef';
+    const logsDir = path.join(
+        tmpDir,
+        '.gemini',
+        'antigravity',
+        'brain',
+        sessionId,
+        '.system_generated',
+        'logs',
+    );
+    fs.mkdirSync(logsDir, { recursive: true });
+
+    const transcript = [
+        JSON.stringify({
+            source: 'USER_EXPLICIT',
+            type: 'USER_INPUT',
+            created_at: '2026-07-09T10:00:00Z',
+            content: '<USER_REQUEST>Hello Gemini</USER_REQUEST>',
+        }),
+        JSON.stringify({
+            source: 'MODEL',
+            type: 'PLANNER_RESPONSE',
+            created_at: '2026-07-09T10:00:01Z',
+            content: 'Hello back',
+        }),
+    ].join('\n');
+    const filePath = path.join(logsDir, 'transcript.jsonl');
+    fs.writeFileSync(filePath, transcript);
+
+    const result = geminiExtractor(filePath);
+    assertEqual(result.metadata.session_id, sessionId);
+    assertEqual(result.messages.length, 2);
+    assertEqual(result.messages[0].role, 'user');
+    assertEqual(result.messages[1].role, 'assistant');
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('gemini: falls back to file stem outside Antigravity layout', () => {
+    const tmpDir = path.join(os.tmpdir(), 'cov-gemini-2');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const filePath = path.join(tmpDir, 'loose-transcript.jsonl');
+    fs.writeFileSync(filePath, '');
+
+    const result = geminiExtractor(filePath);
+    assertEqual(result.metadata.session_id, 'loose-transcript');
+    assertEqual(result.messages.length, 0);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+// ======================================================================
+// 8. CONFIG
 // ======================================================================
 console.log('\n─── config.ts ───');
 const configMod = require('../out/config');
