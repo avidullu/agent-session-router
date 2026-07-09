@@ -1,5 +1,5 @@
 // Unit tests for the .router-index.jsonl writer: schema, seconds mtime,
-// session-id dedup (later wins), distinct sessions, malformed tolerance.
+// session+digest identity, distinct sessions, malformed tolerance.
 
 const fs = require('fs');
 const os = require('os');
@@ -81,13 +81,26 @@ test('mtime is epoch seconds (ms / 1000)', () => {
     assert.strictEqual(readRecords(dir)[0].mtime, 1751436692);
 });
 
-test('dedupes by session_id across runs; later record wins', () => {
+test('dedupes by session_id and digest across runs; later record wins', () => {
+    const dir = tmpDir();
+    writeRouterIndex(dir, [rec({ digest: 'same', messages: 1 })]);
+    writeRouterIndex(dir, [rec({ digest: 'same', messages: 2 })]);
+    const records = readRecords(dir);
+    assert.strictEqual(records.length, 1);
+    assert.strictEqual(records[0].sha256, 'same');
+    assert.strictEqual(records[0].messages, 2);
+});
+
+test('keeps same session_id with different digests', () => {
     const dir = tmpDir();
     writeRouterIndex(dir, [rec({ digest: 'old' })]);
     writeRouterIndex(dir, [rec({ digest: 'new' })]);
     const records = readRecords(dir);
-    assert.strictEqual(records.length, 1);
-    assert.strictEqual(records[0].sha256, 'new');
+    assert.strictEqual(records.length, 2);
+    assert.deepStrictEqual(
+        records.map((r) => r.sha256),
+        ['old', 'new'],
+    );
 });
 
 test('keeps distinct sessions', () => {

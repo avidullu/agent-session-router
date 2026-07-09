@@ -56,7 +56,8 @@ Press `F5` in VS Code to launch the Extension Development Host instead of instal
 `Ctrl+Shift+P` → **Agent Session Router: Set Output Directory**
 
 Choose your Agent Sessions `archive/` directory (or any folder where you want
-Markdown files saved). The extension auto-detects `~/Projects/Agent Sessions/archive/`.
+local Markdown files saved). The extension auto-detects
+`~/Projects/Agent Sessions/archive/`.
 
 ### 3. Export Your Sessions
 `Ctrl+Shift+P` → **Agent Session Router: Export All Sessions**
@@ -72,8 +73,9 @@ New sessions will be automatically exported as they complete.
 
 If you use the [Agent Sessions](https://github.com/avidullu/agent-sessions) hub:
 
-1. The extension writes Markdown to `archive/{source}/` + an `archive/.router-index.jsonl` sidecar
-2. The hub'\''s `export` command merges the sidecar into `archive/index.jsonl`
+1. The extension writes local Markdown to `archive/{source}/` + an `archive/.router-index.jsonl` sidecar
+2. The hub's `export` command merges the sidecar into tracked metadata:
+   `archive/index.jsonl` and `archive/INDEX.md`
 3. Run in the Agent Sessions repo:
    ```bash
    python tools/agent_archive.py export --all
@@ -81,6 +83,9 @@ If you use the [Agent Sessions](https://github.com/avidullu/agent-sessions) hub:
 
 The extension and hub share a **contract** (`docs/OUTPUT_CONTRACT.md`) ensuring
 the Markdown format is always compatible.
+
+When writing into the Agent Sessions hub repo, rendered Markdown files are
+local-only by default. Commit the hub metadata, not the full transcript bodies.
 
 ## Daily Workflow
 

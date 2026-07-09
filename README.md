@@ -19,7 +19,7 @@ and more — exports them as searchable Markdown files into your
 
 ## Quick Start (for AI Agents 🤖)
 
-If you'\''re an AI coding agent setting this up for a user, run the
+If you're an AI coding agent setting this up for a user, run the
 **agentic installation** script. It handles everything and prints the
 exact next steps for the user:
 
@@ -41,7 +41,7 @@ The script will:
 4. ✅ Run the full 93-test suite (fails fast if anything is broken)
 5. ✅ Package the `.vsix`
 6. ✅ Install into VS Code
-7. ✅ Print the recommended settings for the user'\''s `settings.json`
+7. ✅ Print the recommended settings for the user's `settings.json`
 
 After the script completes, tell the user:
 > **Reload VS Code** (`Ctrl+Shift+P` → "Developer: Reload Window"), then
@@ -51,9 +51,9 @@ After the script completes, tell the user:
 
 ## What It Does
 
-Your AI coding sessions are scattered across VS Code'\''s internal storage. This
-extension finds them all, extracts the conversations, and saves them as Markdown
-files you can search, diff, and commit to your private archive.
+Your AI coding sessions are scattered across VS Code's internal storage. This
+extension finds them all, extracts the conversations, and saves them as local
+Markdown files that the Agent Sessions hub can index.
 
 1. **Discover** — scan VS Code for sessions from 8+ agents
 2. **Extract** — parse raw session data into structured conversation transcripts
@@ -142,7 +142,7 @@ All settings are under the `agentSessionRouter` namespace.
 
 ## FAQ
 
-### What does this extension do that the Agent Sessions Python tool doesn'\''t?
+### What does this extension do that the Agent Sessions Python tool doesn't?
 The Agent Sessions Python tool handles **CLI tools** (Claude Code, Codex CLI,
 Gemini CLI, Grok CLI). This extension handles **VS Code extensions** (Copilot Chat,
 DeepSeek, Continue, Cline, etc.). Together they give you complete coverage of all
@@ -151,17 +151,22 @@ your AI coding sessions.
 ### Where are my exported sessions saved?
 To a configurable directory (default: auto-detected `~/Projects/Agent Sessions/archive/`).
 Use the **Set Output Directory** command to change it. Files follow the Agent Sessions
-archive contract — they'\''re ready to be indexed by the hub.
+archive contract — they're ready to be indexed by the hub.
+
+In the Agent Sessions hub repo, rendered Markdown files are local-only by
+default. The router also writes `.router-index.jsonl`; the hub merges that
+sidecar into tracked metadata (`archive/index.jsonl` and `archive/INDEX.md`) on
+the next `python tools/agent_archive.py export --all`.
 
 ### Does this extension upload my sessions anywhere?
-**No.** All processing happens locally on your machine. Sessions are read from VS Code'\''s
+**No.** All processing happens locally on your machine. Sessions are read from VS Code's
 internal storage, parsed, and written as local Markdown files. Nothing is sent over the network.
 
 ### How do I add support for a new AI agent?
 Drop two files into `src/discoverers/` and `src/extractors/`, recompile, and restart.
 See the [Adding Custom Agents](#adding-custom-agents) section below. No core edits needed.
 
-### The watcher isn'\''t auto-exporting my sessions. What'\''s wrong?
+### The watcher isn't auto-exporting my sessions. What's wrong?
 1. Check the Output panel (`View` → `Output` → "Agent Session Router") for `[watcher]` events
 2. Ensure `agentSessionRouter.watch.enabled` is `true`
 3. The watcher only exports sessions that are **modified after** it starts
@@ -171,9 +176,9 @@ See the [Adding Custom Agents](#adding-custom-agents) section below. No core edi
 Yes. The extension writes standalone Markdown files. You can read them directly.
 The Agent Sessions repo adds indexing, search, and a knowledge baseline — entirely optional.
 
-### What'\''s the difference between "antigravity" and "antigravity-ide"?
+### What's the difference between "antigravity" and "antigravity-ide"?
 Both are Gemini-powered AI coding tools. The extension auto-detects which variant
-you use and handles both transparently. You don'\''t need to configure anything.
+you use and handles both transparently. You don't need to configure anything.
 
 ### How do I update the extension?
 ```bash
@@ -183,7 +188,7 @@ npm run compile
 npx @vscode/vsce package -o agent-session-router.vsix
 code --install-extension agent-session-router.vsix --force
 ```
-Or run `./scripts/agentic-install.sh` again — it'\''s idempotent.
+Or run `./scripts/agentic-install.sh` again — it's idempotent.
 
 ---
 
@@ -197,52 +202,52 @@ without modifying core files. Just drop two files into the right folders.
 **1. Discoverer** — `src/discoverers/my-agent.ts` — tells the extension WHERE to find session files:
 
 ```typescript
-import { registerDiscoverer } from '\''./index'\'';
-import { DiscoveredSession } from '\''../types'\'';
-import * as fs from '\''fs'\'';
-import * as path from '\''path'\'';
+import { registerDiscoverer } from './index';
+import { DiscoveredSession } from '../types';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function* discoverMyAgent(): AsyncIterable<DiscoveredSession> {
-    const dir = path.join(process.env.USERPROFILE || '\''~'\'', '\''.my-agent'\'', '\''sessions'\'');
+    const dir = path.join(process.env.USERPROFILE || '~', '.my-agent', 'sessions');
     if (!fs.existsSync(dir)) return;
     for (const file of fs.readdirSync(dir)) {
-        if (!file.endsWith('\''.json'\'')) continue;
+        if (!file.endsWith('.json')) continue;
         const fp = path.join(dir, file);
         yield {
-            sourceName: '\''my-agent'\'',
-            sourceKind: '\''my_agent'\'',
+            sourceName: 'my-agent',
+            sourceKind: 'my_agent',
             filePath: fp,
-            sessionId: file.replace('\''.json'\'', '\'''\''),
+            sessionId: file.replace('.json', ''),
             sizeBytes: fs.statSync(fp).size,
             mtimeMs: fs.statSync(fp).mtimeMs,
         };
     }
 }
-registerDiscoverer('\''my_agent'\'', () => discoverMyAgent());
+registerDiscoverer('my_agent', () => discoverMyAgent());
 ```
 
 **2. Extractor** — `src/extractors/my-agent.ts` — tells the extension HOW to parse session files:
 
 ```typescript
-import { registerExtractor } from '\''./index'\'';
-import { ExtractedSession } from '\''../types'\'';
-import * as fs from '\''fs'\'';
+import { registerExtractor } from './index';
+import { ExtractedSession } from '../types';
+import * as fs from 'fs';
 
 function extractMyAgent(filePath: string): ExtractedSession {
-    const raw = JSON.parse(fs.readFileSync(filePath, '\''utf-8'\''));
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     return {
         metadata: { session_id: raw.id },
         messages: raw.conversation.map((m: any) => ({
-            role: m.speaker === '\''human'\'' ? '\''user'\'' : '\''assistant'\'',
+            role: m.speaker === 'human' ? 'user' : 'assistant',
             text: m.text,
             timestamp: m.timestamp,
         })),
     };
 }
-registerExtractor('\''my_agent'\'', extractMyAgent);
+registerExtractor('my_agent', extractMyAgent);
 ```
 
-**3. Compile and reload** — that'\''s it. Config toggles work automatically:
+**3. Compile and reload** — that's it. Config toggles work automatically:
 
 ```jsonc
 "agentSessionRouter.sources": { "my_agent": { "enabled": true } }
