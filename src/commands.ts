@@ -3,7 +3,9 @@
  */
 
 import * as vscode from 'vscode';
-import { discoverAllSessions, exportAllSessions, exportSession, resetExportCache } from './router';
+import * as path from 'path';
+import * as os from 'os';
+import { discoverAllSessions, exportAllSessions, exportSession, resetExportCache, resolveOutputDir } from './router';
 import { getConfig } from './config';
 import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
@@ -196,10 +198,130 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.showConfig', async () => {
             const config = getConfig();
+            const resolvedDir = resolveOutputDir(config);
             channel.clear();
-            channel.appendLine('Current Configuration:');
+            channel.appendLine('╔══════════════════════════════════════════╗');
+            channel.appendLine('║  Agent Session Router — Configuration     ║');
+            channel.appendLine('╚══════════════════════════════════════════╝');
+            channel.appendLine('');
+            channel.appendLine(`  Enabled:         ${config.enabled}`);
+            channel.appendLine(`  Output dir:      ${config.outputDir || '(auto-detect)'}`);
+            channel.appendLine(`  Resolved dir:    ${resolvedDir}`);
+            channel.appendLine(`  Max session age: ${config.maxSessionAge || '(no limit)'}`);
+            channel.appendLine(`  Watch enabled:   ${config.watch.enabled}`);
+            channel.appendLine(`  Watch debounce:  ${config.watch.debounceMs}ms`);
+            channel.appendLine('');
+            channel.appendLine('  ── Sources ──');
+            for (const [kind, src] of Object.entries(config.sources)) {
+                channel.appendLine(`  ${src.enabled ? '✅' : '❌'} ${kind}`);
+            }
+            channel.appendLine('');
+            channel.appendLine('  ── Actions ──');
+            channel.appendLine('  • Run "Set Output Directory" to change where files are saved');
+            channel.appendLine('  • Edit settings.json to adjust sources, watch, or age');
+            channel.appendLine('');
+            channel.appendLine('  Raw config:');
             channel.appendLine(JSON.stringify(config, null, 2));
             channel.show();
+        })
+    );
+
+    // Set output directory
+    context.subscriptions.push(
+        vscode.commands.registerCommand('agentSessionRouter.setOutputDir', async () => {
+            const config = getConfig();
+            const currentDir = config.outputDir || resolveOutputDir(config);
+
+            // Ask user how they want to set the directory
+            const choice = await vscode.window.showQuickPick(
+                [
+                    {
+                        label: '📁 Choose a folder...',
+                        description: 'Browse to select the output directory',
+                        detail: `Current: ${currentDir}`,
+                        action: 'browse' as const,
+                    },
+                    {
+                        label: '📋 Type a path...',
+                        description: 'Manually enter a directory path',
+                        detail: `Current: ${currentDir}`,
+                        action: 'type' as const,
+                    },
+                    {
+                        label: '🔄 Reset to auto-detect',
+                        description: 'Clear the setting and use the default location',
+                        detail: 'The extension will find your Agent Sessions archive automatically',
+                        action: 'reset' as const,
+                    },
+                ],
+                {
+                    placeHolder: 'How would you like to set the output directory?',
+                    title: 'Agent Session Router — Set Output Directory',
+                },
+            );
+
+            if (!choice) return;
+
+            let newDir: string | undefined;
+
+            if (choice.action === 'browse') {
+                const folders = await vscode.window.showOpenDialog({
+                    canSelectFiles: false,
+                    canSelectFolders: true,
+                    canSelectMany: false,
+                    openLabel: 'Select Output Directory',
+                    title: 'Agent Session Router — Choose where to save exported sessions',
+                });
+                if (!folders || folders.length === 0) return;
+                newDir = folders[0].fsPath;
+            } else if (choice.action === 'type') {
+                const input = await vscode.window.showInputBox({
+                    prompt: 'Enter the path for the output directory',
+                    value: currentDir,
+                    placeHolder: 'e.g. C:\\Users\\You\\Projects\\Agent Sessions\\archive',
+                    validateInput: (value) => {
+                        if (!value.trim()) {
+                            return 'Path cannot be empty. Use "Reset to auto-detect" to clear the setting.';
+                        }
+                        // Accept any path; warn if it doesn't exist but allow it
+                        return undefined;
+                    },
+                });
+                if (!input) return;
+                newDir = input.trim();
+            } else if (choice.action === 'reset') {
+                newDir = '';
+            }
+
+            if (newDir === undefined) return;
+
+            // Update the VS Code setting
+            const target = vscode.ConfigurationTarget.Global;
+            const cfg = vscode.workspace.getConfiguration('agentSessionRouter');
+            await cfg.update('outputDir', newDir, target);
+
+            // Confirm
+            const displayDir = newDir || resolveOutputDir(getConfig());
+            channel.clear();
+            channel.appendLine('╔══════════════════════════════════════════╗');
+            channel.appendLine('║  Output Directory Updated                 ║');
+            channel.appendLine('╚══════════════════════════════════════════╝');
+            channel.appendLine('');
+            if (newDir) {
+                channel.appendLine(`  New directory:  ${newDir}`);
+            } else {
+                channel.appendLine(`  Setting cleared — using auto-detect`);
+                channel.appendLine(`  Resolved dir:   ${displayDir}`);
+            }
+            channel.appendLine('');
+            channel.appendLine('  Run "Export All Sessions" to start exporting.');
+            channel.show();
+
+            vscode.window.showInformationMessage(
+                newDir
+                    ? `Agent Session Router: Output directory set to ${newDir}`
+                    : 'Agent Session Router: Output directory reset to auto-detect.',
+            );
         })
     );
 
