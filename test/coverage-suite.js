@@ -878,7 +878,9 @@ function extractSessionId(filePath) {
             return parts[i];
         }
     }
-    return require('path').basename(filePath, require('path').extname(filePath));
+    // Normalize to forward slashes so path.basename works on Linux too
+    const normalized = filePath.replace(/\\/g, '/');
+    return require('path').basename(normalized, require('path').extname(normalized));
 }
 
 // ── isSessionFile ──
