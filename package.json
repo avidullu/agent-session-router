@@ -128,7 +128,7 @@
         "watch": "tsc -watch -p ./",
         "lint": "eslint src --ext ts",
         "pretest": "npm run compile",
-        "test": "node ./out/test/runTest.js"
+        "test": "node test/contract-conformance.js && node test/router-index-test.js && node test/coverage-suite.js && node test/smoke-test.js"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",

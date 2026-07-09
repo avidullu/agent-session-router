@@ -1,37 +1,43 @@
 /**
- * Markdown renderer — produces output compatible with the Agent Sessions
- * Python render.py format so the archive pipeline can consume files
- * produced by this extension without modification.
+ * Markdown renderer — byte-for-byte compatible with the Agent Sessions Python
+ * `render.py::markdown_for_session` (see the hub's docs/OUTPUT_CONTRACT.md),
+ * so the archive pipeline consumes files this extension produces without
+ * modification. Conformance is pinned by test/fixtures/contract/.
  *
  * Output format:
- *   # {source_name} / {session_id}
+ *   # {source_name} / {session_id|source_file_stem}
  *   ## Metadata
  *   - Source: `{source_name}`
  *   - Kind: `{source_kind}`
- *   - Source file: `{filePath}`
+ *   - Source file: `{native source path}`
  *   - SHA-256: `{digest}`
- *   - Source modified: `{mtime_iso}`
- *   - Imported at: `{imported_at}`
+ *   - Source modified: `{source_modified +00:00}`
+ *   - Imported at: `{imported_at +00:00}`
+ *   - {every remaining metadata key, sorted}: `{value}`
  *   ## Transcript
- *   ### 1. {role} ({timestamp})
+ *   ### 1. {role}[ ({timestamp})]
  *   {message text}
  */
 
 import { ExtractedSession } from '../types';
-import { isoNow, toPosixPath } from '../utils';
+import { isoSecondsNow, pathStem } from '../contract';
 
 export interface RenderContext {
     sourceName: string;
     sourceKind: string;
     sourceFilePath: string;
     digest: string;
+    /** UTC ISO-8601 seconds with +00:00 offset (see contract.isoSecondsUtc). */
     sourceModifiedAt: string;
     importedAt?: string;
 }
 
 export function renderMarkdown(session: ExtractedSession, ctx: RenderContext): string {
-    const title = `${ctx.sourceName} / ${session.metadata.session_id || 'unknown'}`;
-    const importedAt = ctx.importedAt || isoNow();
+    // Title: source_name / session_id, session_id falling back to the source
+    // file stem (NOT a literal), empties dropped — matches render.py.
+    const sessionId = String(session.metadata.session_id || pathStem(ctx.sourceFilePath));
+    const title = [ctx.sourceName, sessionId].filter((x) => x !== '').join(' / ');
+    const importedAt = ctx.importedAt || isoSecondsNow();
 
     const lines: string[] = [
         `# ${title}`,
@@ -40,17 +46,17 @@ export function renderMarkdown(session: ExtractedSession, ctx: RenderContext): s
         '',
         `- Source: \`${ctx.sourceName}\``,
         `- Kind: \`${ctx.sourceKind}\``,
-        `- Source file: \`${toPosixPath(ctx.sourceFilePath)}\``,
+        `- Source file: \`${ctx.sourceFilePath}\``,
         `- SHA-256: \`${ctx.digest}\``,
         `- Source modified: \`${ctx.sourceModifiedAt}\``,
         `- Imported at: \`${importedAt}\``,
     ];
 
-    // Emit extra metadata keys
+    // Every remaining metadata key, sorted, skipping empty values. The contract
+    // emits ALL keys (including session_id / source_file) — do not exclude any.
     for (const key of Object.keys(session.metadata).sort()) {
         const value = session.metadata[key];
         if (value === null || value === undefined || value === '') continue;
-        if (key === 'session_id' || key === 'source_file') continue; // already covered
         lines.push(`- ${key}: \`${String(value)}\``);
     }
 
@@ -66,9 +72,6 @@ export function renderMarkdown(session: ExtractedSession, ctx: RenderContext): s
         let heading = `### ${i + 1}. ${msg.role || 'message'}`;
         if (msg.timestamp) {
             heading += ` (${msg.timestamp})`;
-        }
-        if (msg.toolName) {
-            heading += ` [tool: ${msg.toolName}]`;
         }
         lines.push(heading, '', msg.text.trimEnd(), '');
     }

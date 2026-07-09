@@ -13,7 +13,9 @@ import { DiscoveredSession, ExportRecord } from './types';
 import { getDiscoverer } from './discoverers/index';
 import { getExtractor } from './extractors/index';
 import { renderMarkdown } from './renderers/markdown';
-import { sha256File, slugify, isoNow, canReuseRecord } from './utils';
+import { sha256File, isoNow, canReuseRecord } from './utils';
+import { archiveStem, isoSecondsUtc, repoRelativeMarkdown } from './contract';
+import { writeRouterIndex } from './router-index';
 import { getConfig, Config } from './config';
 import {
     logDiscover,
@@ -162,19 +164,25 @@ export async function exportSession(
         return null;
     }
 
-    // Determine output path
-    const sourceDir = slugify(session.sourceName);
-    const sessionFile = slugify(String(extracted.metadata.session_id || path.basename(session.filePath, path.extname(session.filePath))));
-    const markdownPath = path.join(outputDir, sourceDir, `${sessionFile}.md`);
+    // Determine output path — archive/{source_name}/{stem}.md, where the stem
+    // matches the hub's naming (contract.archiveStem / OUTPUT_CONTRACT.md §5).
+    const stem = archiveStem({
+        sourceFilePath: session.filePath,
+        sessionId: String(extracted.metadata.session_id || ''),
+        digest,
+        mtimeMs: session.mtimeMs,
+    });
+    const archiveDirName = path.basename(outputDir);
+    const markdownPath = path.join(outputDir, session.sourceName, `${stem}.md`);
+    const markdownRel = repoRelativeMarkdown(archiveDirName, session.sourceName, stem);
 
     // Render
-    const modifiedDate = new Date(session.mtimeMs);
     const markdown = renderMarkdown(extracted, {
         sourceName: session.sourceName,
         sourceKind: session.sourceKind,
         sourceFilePath: session.filePath,
         digest,
-        sourceModifiedAt: modifiedDate.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        sourceModifiedAt: isoSecondsUtc(new Date(session.mtimeMs)),
     });
 
     logRender(session.sourceKind, session.sessionId, markdownPath, extracted.messages.length);
@@ -202,6 +210,9 @@ export async function exportSession(
         sizeBytes: session.sizeBytes,
         mtimeMs: session.mtimeMs,
         markdownPath,
+        markdownRel,
+        messages: extracted.messages.length,
+        metadata: extracted.metadata,
         exportedAt: isoNow(),
     };
 
@@ -251,6 +262,10 @@ export async function exportAllSessions(
 
     const durationMs = Date.now() - startTime;
     logExportSummary(total, exported, skipped, failed, durationMs);
+
+    if (records.length > 0) {
+        writeRouterIndex(outputDir, records);
+    }
 
     return records;
 }

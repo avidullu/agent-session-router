@@ -1,0 +1,4 @@
+# The Agent Sessions archive format is LF-only (the hub writes newline="\n").
+# Keep the vendored output-contract golden fixtures byte-exact LF on every
+# platform so the conformance tests pass identically on Windows and Linux.
+test/fixtures/contract/** text eol=lf

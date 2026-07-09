@@ -55,6 +55,13 @@ export interface ExportRecord {
     digest: string;
     sizeBytes: number;
     mtimeMs: number;
+    /** Absolute path to the written Markdown file. */
     markdownPath: string;
+    /** Repo-relative POSIX path, for the .router-index.jsonl `markdown` field. */
+    markdownRel: string;
+    /** Number of extracted messages. */
+    messages: number;
+    /** Session metadata carried into the index record. */
+    metadata: Record<string, unknown>;
     exportedAt: string;
 }

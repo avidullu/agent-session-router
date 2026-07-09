@@ -220,13 +220,15 @@ test('renderMarkdown skips null/empty metadata values', () => {
     assertOk(!md.includes('empty:'));
 });
 
-test('renderMarkdown with tool name in heading', () => {
+test('renderMarkdown omits tool suffix (contract: byte-for-byte with render.py)', () => {
     const session = {
         metadata: { session_id: 's6' },
         messages: [{ role: 'tool', text: 'result', toolName: 'read_file' }],
     };
     const md = renderMarkdown(session, baseCtx);
-    assertIncludes(md, '[tool: read_file]');
+    // The hub's render.py emits no tool decoration; headings are `### N. role`.
+    assertIncludes(md, '### 1. tool');
+    assertOk(!md.includes('[tool:'));
 });
 
 test('renderMarkdown with multiple messages', () => {
