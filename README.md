@@ -3,8 +3,8 @@
 [![CI](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml/badge.svg)](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.90%2B-007ACC)](https://code.visualstudio.com/)
-![Tests](https://img.shields.io/badge/tests-93%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-76%20unit%20tests-blue)
+![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-80%20unit%20tests-blue)
 ![Agents](https://img.shields.io/badge/agents-8%20supported-9cf)
 
 Automatically archive your AI coding sessions. Discovers conversations from
@@ -13,7 +13,7 @@ and more — exports them as searchable Markdown files into your
 [Agent Sessions](https://github.com/avidullu/agent-sessions) archive.
 
 > **🎉 Public Launch** — v0.1.0 is stable and ready for daily use.
-> 93 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
+> 103 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
 
 ---
 
@@ -35,15 +35,17 @@ chmod +x scripts/agentic-install.sh
 ```
 
 The script will:
+
 1. ✅ Verify Node.js ≥ 20
 2. ✅ Install dependencies (`npm ci`)
 3. ✅ Compile TypeScript
-4. ✅ Run the full 93-test suite (fails fast if anything is broken)
+4. ✅ Run the full 103-test suite (fails fast if anything is broken)
 5. ✅ Package the `.vsix`
 6. ✅ Install into VS Code
 7. ✅ Print the recommended settings for the user's `settings.json`
 
 After the script completes, tell the user:
+
 > **Reload VS Code** (`Ctrl+Shift+P` → "Developer: Reload Window"), then
 > run **Agent Session Router: Export All Sessions** from the Command Palette.
 
@@ -63,33 +65,34 @@ Markdown files that the Agent Sessions hub can index.
 
 ## Supported Agents
 
-| Agent | Source | Status |
-|-------|--------|--------|
-| **GitHub Copilot Chat** | VS Code extension | ✅ Full support (transcripts + tool output) |
-| **DeepSeek V4** | VS Code extension | ✅ Full support |
-| **Continue.dev** | VS Code extension | ✅ Discover + Extract |
-| **Cline** | VS Code extension | ✅ Discover + Extract |
-| **Cody (Sourcegraph)** | VS Code extension | ✅ Discover + Extract |
-| **Aider** | VS Code extension | ✅ Discover + Extract |
-| **Gemini Antigravity** | VS Code extension + IDE | ✅ Discover + Extract |
-| **Tabby, Codeium, Amazon Q** | VS Code extensions | ✅ Via generic globalStorage |
-| **Grok, Claude, Gemini (LM API)** | Via Copilot Chat | ✅ Same storage |
-| **OpenAI ChatGPT** | Via Codex CLI | ✅ Via Codex extractor |
+| Agent                             | Source                  | Status                                      |
+| --------------------------------- | ----------------------- | ------------------------------------------- |
+| **GitHub Copilot Chat**           | VS Code extension       | ✅ Full support (transcripts + tool output) |
+| **DeepSeek V4**                   | VS Code extension       | ✅ Full support                             |
+| **Continue.dev**                  | VS Code extension       | ✅ Discover + Extract                       |
+| **Cline**                         | VS Code extension       | ✅ Discover + Extract                       |
+| **Cody (Sourcegraph)**            | VS Code extension       | ✅ Discover + Extract                       |
+| **Aider**                         | VS Code extension       | ✅ Discover + Extract                       |
+| **Gemini Antigravity**            | VS Code extension + IDE | ✅ Discover + Extract                       |
+| **Tabby, Codeium, Amazon Q**      | VS Code extensions      | ✅ Via generic globalStorage                |
+| **Grok, Claude, Gemini (LM API)** | Via Copilot Chat        | ✅ Same storage                             |
+| **OpenAI ChatGPT**                | Via Codex CLI           | ✅ Via Codex extractor                      |
 
 > New agents are auto-discovered on the next scan — no configuration needed.
 
 ## Testing & Quality
 
-| Metric | Value |
-|--------|-------|
-| **Total tests** | **93** (0 failures) |
-| Unit tests (coverage suite) | 76 |
-| Contract conformance | 6 |
-| Router-index tests | 5 |
-| Smoke tests | 6 |
-| **CI matrix** | Windows, macOS, Linux × Node 20, 22 |
-| **Linting** | ESLint (TypeScript) — 0 errors |
-| **Formatting** | Prettier — enforced in CI |
+| Metric                      | Value                               |
+| --------------------------- | ----------------------------------- |
+| **Total tests**             | **103** (0 failures)                |
+| Unit tests (coverage suite) | 80                                  |
+| Contract conformance        | 6                                   |
+| Router-index tests          | 6                                   |
+| Router export outcome tests | 5                                   |
+| Smoke tests                 | 6                                   |
+| **CI matrix**               | Windows, macOS, Linux × Node 20, 22 |
+| **Linting**                 | ESLint (TypeScript) — 0 errors      |
+| **Formatting**              | Prettier — enforced in CI           |
 
 ```bash
 npm test          # Full suite: contract + index + coverage + smoke
@@ -102,17 +105,17 @@ npm run ci:check    # All gates: lint → format → compile → test
 
 Open the Command Palette (`Ctrl+Shift+P`) and type "Agent Session Router":
 
-| Command | Description |
-|---------|-------------|
-| **Discover Sessions** | Scan and list all discoverable agent sessions |
-| **Export All Sessions** | Export all discovered sessions to Markdown |
-| **Export Selected Session** | Pick a specific session file to export |
-| **Set Output Directory** | Choose where to save exported session files |
-| **Show Configuration** | Display current extension settings |
-| **Start Watching** | Begin auto-exporting sessions as they complete |
-| **Stop Watching** | Stop the auto-export watcher |
-| **Export Diagnostic Bundle** | Package logs + source samples for debugging |
-| **Reset State** | Clear all cached exports |
+| Command                      | Description                                    |
+| ---------------------------- | ---------------------------------------------- |
+| **Discover Sessions**        | Scan and list all discoverable agent sessions  |
+| **Export All Sessions**      | Export all discovered sessions to Markdown     |
+| **Export Selected Session**  | Pick a specific session file to export         |
+| **Set Output Directory**     | Choose where to save exported session files    |
+| **Show Configuration**       | Display current extension settings             |
+| **Start Watching**           | Begin auto-exporting sessions as they complete |
+| **Stop Watching**            | Stop the auto-export watcher                   |
+| **Export Diagnostic Bundle** | Package logs + source samples for debugging    |
+| **Reset State**              | Clear all cached exports                       |
 
 ## Configuration
 
@@ -120,35 +123,37 @@ All settings are under the `agentSessionRouter` namespace.
 
 ```jsonc
 {
-  // Output directory for rendered Markdown files.
-  // Use "Set Output Directory" command to pick a folder interactively.
-  "agentSessionRouter.outputDir": "~/Projects/Agent Sessions/archive",
+    // Output directory for rendered Markdown files.
+    // Use "Set Output Directory" command to pick a folder interactively.
+    "agentSessionRouter.outputDir": "~/Projects/Agent Sessions/archive",
 
-  // Per-source toggles (any discoverer kind works — pluggable)
-  "agentSessionRouter.sources": {
-    "copilot_chat": { "enabled": true },
-    "deepseek_request_dump": { "enabled": true },
-    "gemini_antigravity": { "enabled": true }
-  },
+    // Per-source toggles (any discoverer kind works — pluggable)
+    "agentSessionRouter.sources": {
+        "copilot_chat": { "enabled": true },
+        "deepseek_request_dump": { "enabled": true },
+        "gemini_antigravity": { "enabled": true },
+    },
 
-  // Auto-export watcher
-  "agentSessionRouter.watch.enabled": false,
-  "agentSessionRouter.watch.debounceMs": 5000,
+    // Auto-export watcher
+    "agentSessionRouter.watch.enabled": false,
+    "agentSessionRouter.watch.debounceMs": 5000,
 
-  // Max age of sessions to export
-  "agentSessionRouter.maxSessionAge": "90d"
+    // Max age of sessions to export
+    "agentSessionRouter.maxSessionAge": "90d",
 }
 ```
 
 ## FAQ
 
 ### What does this extension do that the Agent Sessions Python tool doesn't?
+
 The Agent Sessions Python tool handles **CLI tools** (Claude Code, Codex CLI,
 Gemini CLI, Grok CLI). This extension handles **VS Code extensions** (Copilot Chat,
 DeepSeek, Continue, Cline, etc.). Together they give you complete coverage of all
 your AI coding sessions.
 
 ### Where are my exported sessions saved?
+
 To a configurable directory (default: auto-detected `~/Projects/Agent Sessions/archive/`).
 Use the **Set Output Directory** command to change it. Files follow the Agent Sessions
 archive contract — they're ready to be indexed by the hub.
@@ -159,28 +164,34 @@ sidecar into tracked metadata (`archive/index.jsonl` and `archive/INDEX.md`) on
 the next `python tools/agent_archive.py export --all`.
 
 ### Does this extension upload my sessions anywhere?
+
 **No.** All processing happens locally on your machine. Sessions are read from VS Code's
 internal storage, parsed, and written as local Markdown files. Nothing is sent over the network.
 
 ### How do I add support for a new AI agent?
+
 Drop two files into `src/discoverers/` and `src/extractors/`, recompile, and restart.
 See the [Adding Custom Agents](#adding-custom-agents) section below. No core edits needed.
 
 ### The watcher isn't auto-exporting my sessions. What's wrong?
+
 1. Check the Output panel (`View` → `Output` → "Agent Session Router") for `[watcher]` events
 2. Ensure `agentSessionRouter.watch.enabled` is `true`
 3. The watcher only exports sessions that are **modified after** it starts
 4. Run **Export Diagnostic Bundle** to collect logs for debugging
 
 ### Can I use this without the Agent Sessions repo?
+
 Yes. The extension writes standalone Markdown files. You can read them directly.
 The Agent Sessions repo adds indexing, search, and a knowledge baseline — entirely optional.
 
 ### What's the difference between "antigravity" and "antigravity-ide"?
+
 Both are Gemini-powered AI coding tools. The extension auto-detects which variant
 you use and handles both transparently. You don't need to configure anything.
 
 ### How do I update the extension?
+
 ```bash
 git pull origin master
 npm ci
@@ -188,6 +199,7 @@ npm run compile
 npx @vscode/vsce package -o agent-session-router.vsix
 code --install-extension agent-session-router.vsix --force
 ```
+
 Or run `./scripts/agentic-install.sh` again — it's idempotent.
 
 ---
@@ -259,14 +271,16 @@ registerExtractor('my_agent', extractMyAgent);
 
 The extension produces Markdown files matching the Agent Sessions contract:
 
-````markdown
+```markdown
 # deepseek-vscode / {session-id}
+
 ## Metadata
+
 - Source: `deepseek-vscode`
 - Kind: `deepseek_request_dump`
 - Source file: `/path/to/source.json`
 - SHA-256: `abc123...`
-````
+```
 
 ## Diagnostics & Debugging
 
