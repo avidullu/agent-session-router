@@ -1,5 +1,7 @@
 # Agent Session Router — VS Code Extension
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/avidullu.agent-session-router?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/avidullu.agent-session-router)](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router)
 [![CI](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml/badge.svg)](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.90%2B-007ACC)](https://code.visualstudio.com/)
@@ -12,14 +14,27 @@ Automatically archive your AI coding sessions. Discovers conversations from
 and more — exports them as searchable Markdown files into your
 [Agent Sessions](https://github.com/avidullu/agent-sessions) archive.
 
-> **🎉 Public Launch** — v0.1.0 is stable and ready for daily use.
+> **🎉 Live on the Marketplace** — v0.1.0 is published and ready for daily use:
+> [marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router).
 > 107 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
 
 ---
 
 ## Quick Start
 
-### Option 1: Install from VSIX (Recommended)
+### Option 1: Install from the VS Code Marketplace (Recommended)
+
+Open the [Marketplace listing](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router)
+and click **Install**, or from a terminal:
+
+```bash
+code --install-extension avidullu.agent-session-router
+```
+
+Then run **Agent Session Router: Export All Sessions** from the Command Palette
+(`Ctrl+Shift+P`).
+
+### Option 2: Install from VSIX
 
 1. Download the latest `.vsix` from [Releases](https://github.com/avidullu/agent-session-router/releases)
 2. Install:
@@ -27,9 +42,8 @@ and more — exports them as searchable Markdown files into your
    code --install-extension agent-session-router-0.1.0.vsix --force
    ```
 3. **Reload VS Code** (`Ctrl+Shift+P` → "Developer: Reload Window")
-4. Run **Agent Session Router: Export All Sessions** from the Command Palette
 
-### Option 2: Build from Source
+### Option 3: Build from Source
 
 ```bash
 git clone https://github.com/avidullu/agent-session-router.git
