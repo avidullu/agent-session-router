@@ -1,13 +1,8 @@
 name: Publish
 
-# Publish to VS Code Marketplace + Open VSX on tag push (v*).
-# Requires secrets: VSCE_PAT (Azure DevOps PAT) and OVSX_PAT (Open VSX token).
-#
-# Setup (one-time per publisher):
-#   1. Create Azure DevOps org → generate PAT with "Marketplace (Publish)" scope
-#   2. Create Open VSX account → generate access token at https://open-vsx.org/user-settings/tokens
-#   3. Add both as repo secrets: VSCE_PAT and OVSX_PAT
-#   4. Create a publisher at https://marketplace.visualstudio.com/manage (if not already)
+# Publish to VS Code Marketplace (+ Open VSX if configured) on tag push (v*).
+# Requires secret: VSCE_PAT (Azure DevOps PAT with Marketplace → Manage scope).
+# Optional secret: OVSX_PAT (Open VSX token).
 #
 # Then push a tag: git tag v0.1.0 && git push origin v0.1.0
 
@@ -24,6 +19,12 @@ jobs:
     name: Publish to Marketplaces
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Map secrets to env at the job level: the `secrets` context is NOT
+    # available in step `if:` conditions (only `env` is), so referencing
+    # secrets there fails the whole workflow at startup with zero jobs.
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
     steps:
       - uses: actions/checkout@v5
 
@@ -43,15 +44,11 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         if: success()
-        run: npx @vscode/vsce publish --pat ${{ secrets.VSCE_PAT }}
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx @vscode/vsce publish
 
       - name: Publish to Open VSX
         # Optional channel: skip cleanly when no Open VSX token is configured,
         # so a release is not marked failed after the Marketplace publish
         # already succeeded (D4 lists Open VSX as tentative).
-        if: ${{ success() && secrets.OVSX_PAT != '' }}
-        run: npx ovsx publish --pat ${{ secrets.OVSX_PAT }}
-        env:
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        if: ${{ success() && env.OVSX_PAT != '' }}
+        run: npx ovsx publish
