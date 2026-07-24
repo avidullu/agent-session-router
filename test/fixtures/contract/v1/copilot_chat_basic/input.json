@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "source_name": "copilot-vscode-windows",
+  "source_kind": "copilot_chat",
+  "source_file_name": "9f8e7d6c-1234-4abc-9def-0123456789ab.jsonl",
+  "sha256": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6",
+  "size": 4096,
+  "mtime": 1751436692,
+  "imported_at": "2025-07-05T16:48:15+00:00",
+  "metadata": {
+    "session_id": "9f8e7d6c-1234-4abc-9def-0123456789ab",
+    "model_provider": "copilot",
+    "cwd": "C:\\Users\\example-user\\Projects\\demo"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "text": "How do I flatten a nested directory in git?",
+      "timestamp": "2025-07-02T06:11:32.663Z"
+    },
+    {
+      "role": "assistant",
+      "text": "Use `git mv` to move each child up one level, preserving history.",
+      "timestamp": "2025-07-02T06:11:35.120Z"
+    },
+    {
+      "role": "assistant",
+      "text": "Trailing whitespace and blank lines should be stripped.   \n\n",
+      "timestamp": ""
+    }
+  ]
+}

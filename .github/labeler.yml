@@ -1,0 +1,62 @@
+# Auto-labeling rules for pull requests.
+# Labels are applied based on file glob patterns.
+
+# Core source code
+"src/**/*.ts":
+  - "source"
+  - "typescript"
+
+# Discoverers (new agent support)
+"src/discoverers/**":
+  - "agent-support"
+  - "discoverer"
+
+# Extractors (parsing logic)
+"src/extractors/**":
+  - "agent-support"
+  - "extractor"
+
+# Tests
+"test/**":
+  - "tests"
+
+# CI / workflow
+".github/**":
+  - "ci"
+  - "automation"
+
+# Documentation
+"docs/**":
+  - "documentation"
+
+"README.md":
+  - "documentation"
+
+"SETUP.md":
+  - "documentation"
+
+"PLAN.md":
+  - "documentation"
+  - "planning"
+
+# Configuration
+"package.json":
+  - "configuration"
+
+"package-lock.json":
+  - "dependencies"
+
+"tsconfig.json":
+  - "configuration"
+
+".eslintrc.json":
+  - "configuration"
+  - "linting"
+
+".prettierrc":
+  - "configuration"
+  - "formatting"
+
+# Renderers
+"src/renderers/**":
+  - "renderer"

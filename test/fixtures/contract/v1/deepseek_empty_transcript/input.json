@@ -1,0 +1,14 @@
+{
+  "format_version": 1,
+  "source_name": "deepseek-vscode-windows",
+  "source_kind": "deepseek_request_dump",
+  "source_file_name": "Deep Seek Dump.json",
+  "sha256": "0011223344556677889900aabbccddeeff00112233445566778899aabbccddee",
+  "size": 512,
+  "mtime": 1751436692,
+  "imported_at": "2025-07-05T16:48:15+00:00",
+  "metadata": {
+    "model_provider": "deepseek"
+  },
+  "messages": []
+}

@@ -1,0 +1,156 @@
+{
+    "name": "agent-session-router",
+    "displayName": "Agent Session Router",
+    "description": "Automatically archive your AI coding sessions. Discovers conversations from Copilot Chat, DeepSeek, Continue, Cline, and more — exports local Markdown files for the Agent Sessions archive.",
+    "version": "0.1.0",
+    "publisher": "avidullu",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/avidullu/agent-session-router"
+    },
+    "engines": {
+        "vscode": "^1.90.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onCommand:agentSessionRouter.discover",
+        "onCommand:agentSessionRouter.exportAll",
+        "onCommand:agentSessionRouter.exportSession",
+        "onCommand:agentSessionRouter.diagnosticBundle",
+        "onCommand:agentSessionRouter.watchStart",
+        "onCommand:agentSessionRouter.watchStop",
+        "onCommand:agentSessionRouter.showConfig",
+        "onCommand:agentSessionRouter.setOutputDir",
+        "onCommand:agentSessionRouter.resetState"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "agentSessionRouter.discover",
+                "title": "Agent Session Router: Discover Sessions",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.exportAll",
+                "title": "Agent Session Router: Export All Sessions",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.exportSession",
+                "title": "Agent Session Router: Export Selected Session",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.diagnosticBundle",
+                "title": "Agent Session Router: Export Diagnostic Bundle",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.watchStart",
+                "title": "Agent Session Router: Auto-Export — Monitor for New Sessions",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.watchStop",
+                "title": "Agent Session Router: Auto-Export — Stop Monitoring",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.showConfig",
+                "title": "Agent Session Router: Show Configuration",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.setOutputDir",
+                "title": "Agent Session Router: Set Output Directory",
+                "category": "Agent Sessions"
+            },
+            {
+                "command": "agentSessionRouter.resetState",
+                "title": "Agent Session Router: Reset — Clear All Cached Exports",
+                "category": "Agent Sessions"
+            }
+        ],
+        "configuration": {
+            "title": "Agent Session Router",
+            "properties": {
+                "agentSessionRouter.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable or disable the Agent Session Router extension."
+                },
+                "agentSessionRouter.outputDir": {
+                    "type": "string",
+                    "default": "",
+                    "markdownDescription": "Output directory for rendered Markdown session files. Defaults to the Agent Sessions archive directory if empty. Use the **Agent Session Router: Set Output Directory** command to choose a folder interactively.",
+                    "editPresentation": "multilineText"
+                },
+                "agentSessionRouter.sources": {
+                    "type": "object",
+                    "default": {
+                        "copilot_chat": {
+                            "enabled": true
+                        },
+                        "deepseek_request_dump": {
+                            "enabled": true
+                        }
+                    },
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "description": "Enable or disable this agent source."
+                            }
+                        }
+                    },
+                    "description": "Per-source configuration. Add any key matching a discoverer kind to enable/disable it."
+                },
+                "agentSessionRouter.watch.enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Automatically watch for new sessions and export them."
+                },
+                "agentSessionRouter.watch.debounceMs": {
+                    "type": "number",
+                    "default": 5000,
+                    "description": "Debounce delay in milliseconds before exporting a newly detected session."
+                },
+                "agentSessionRouter.maxSessionAge": {
+                    "type": "string",
+                    "default": "90d",
+                    "description": "Maximum age of sessions to export (e.g., '30d', '7d', '24h'). Leave empty for no limit."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "lint": "eslint src --ext ts",
+        "pretest": "npm run compile",
+        "test": "node test/contract-conformance.js && node test/router-index-test.js && node test/router-export-outcomes.js && node test/coverage-suite.js && node test/smoke-test.js",
+        "lint:check": "eslint src --ext ts",
+        "format": "prettier --write src/**/*.ts",
+        "format:check": "prettier --check src/**/*.ts",
+        "ci:check": "npm run lint:check ; npm run format:check ; npm run compile ; npm test"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/vscode": "^1.90.0",
+        "@typescript-eslint/eslint-plugin": "^7.0.0",
+        "@typescript-eslint/parser": "^7.0.0",
+        "c8": "^11.0.0",
+        "eslint": "^8.0.0",
+        "prettier": "^3.9.4",
+        "typescript": "^5.4.0"
+    },
+    "dependencies": {
+        "chokidar": "^3.6.0"
+    }
+}

@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Lint + Format gate (fast, runs first) ──────────────────────────
+  lint-format:
+    name: lint-format (node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20", "22"]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint:check
+
+      - name: Format (Prettier)
+        run: npm run format:check
+
+  # ── Build + Test (full OS + Node matrix) ───────────────────────────
+  build-test:
+    name: build-test (node ${{ matrix.node-version }}, ${{ matrix.os }})
+    needs: lint-format
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: ["20", "22"]
+        # Exclude combinations that add no coverage:
+        # - Windows-only CRLF golden-fixture risk tested on Node 20
+        exclude:
+          - os: macos-latest
+            node-version: "22"
+          - os: windows-latest
+            node-version: "22"
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Test (contract conformance + unit + smoke)
+        run: npm test
+
+  # ── PII / attribution leak guard ──────────────────────────────────
+  # Fails on committed personal absolute user paths in src/ and test/
+  # (allowlisted: fixtures with `example-user` placeholder).
+  pii-scan:
+    name: PII scan (user paths)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for personal paths
+        run: |
+          # Scan for C:\Users\<name>\... and /home/<name>/... patterns.
+          # Allowlist: 'example-user' in test fixtures — filtered out before failing.
+          RAW=$(grep -rn 'C:\\Users\\|/home/' src/ test/ SESSION_HANDOFF.md README.md SETUP.md 2>/dev/null || true)
+          FOUND=$(echo "$RAW" | grep -v 'example-user' || true)
+          if [ -n "$FOUND" ]; then
+            echo "::error::Personal user paths detected in tracked files:"
+            echo "$FOUND"
+            echo "Replace with 'example-user' placeholder or relative paths."
+            exit 1
+          fi
+          echo "[pii-scan] clean — no personal user paths detected."
+
+  # ── Internal-link guard ───────────────────────────────────────────
+  # Fails on broken internal markdown links (missing files) in LIVE docs.
+  # Excludes docs/archives/ — frozen snapshots whose relative links are
+  # historical-by-design.
+  link-check:
+    name: Markdown link check (live docs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check internal markdown links
+        run: |
+          set -e
+          BROKEN=0
+          for md in $(git ls-files '*.md' | grep -v '^docs/archives/'); do
+            # Extract relative links: [text](path) or [text](path#anchor)
+            links=$(grep -oP '\[[^\]]*\]\(\s*\K[^)]+' "$md" | grep -v '^https\?://' | grep -v '^mailto:' | grep -v '^//' || true)
+            for link in $links; do
+              # Strip anchor and title suffix
+              target=$(echo "$link" | sed 's/#.*//' | sed 's/\s*".*"//')
+              [ -z "$target" ] && continue  # pure anchor
+              # Resolve relative to the file's directory
+              resolved=$(dirname "$md")/$target
+              # Normalize
+              resolved=$(echo "$resolved" | sed 's|/\./|/|g')
+              if [ ! -f "$resolved" ]; then
+                echo "::error file=$md::broken link -> $link (target $resolved not found)"
+                BROKEN=1
+              fi
+            done
+          done
+          if [ "$BROKEN" -eq 1 ]; then
+            echo "::error::Broken internal links found. See above for details."
+            exit 1
+          fi
+          echo "[link-check] clean — no broken internal links in live docs."
