@@ -1,0 +1,14 @@
+# Dependabot: keep npm deps and workflow actions patched. PRs land on the
+# GitHub mirror; fold accepted bumps back through the primary forge.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
