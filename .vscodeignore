@@ -6,3 +6,10 @@ src/**
 .gitignore
 *.vsix
 coverage/**
+PLAN.md
+SESSION_HANDOFF.md
+SETUP.md
+docs/**
+scripts/**
+.github/**
+tsconfig.json
