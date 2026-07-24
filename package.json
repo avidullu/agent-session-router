@@ -148,7 +148,7 @@
         "c8": "^11.0.0",
         "eslint": "^8.0.0",
         "prettier": "^3.9.4",
-        "typescript": "^5.4.0"
+        "typescript": "^7.0.2"
     },
     "dependencies": {
         "chokidar": "^3.6.0"
