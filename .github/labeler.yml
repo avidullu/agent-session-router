@@ -1,62 +1,72 @@
-# Auto-labeling rules for pull requests.
-# Labels are applied based on file glob patterns.
+# actions/labeler v6 rules. Top-level keys are repository labels; each matcher
+# selects files whose changes should apply that label.
 
-# Core source code
-"src/**/*.ts":
-  - "source"
-  - "typescript"
+source:
+  - changed-files:
+      - any-glob-to-any-file: "src/**/*.ts"
 
-# Discoverers (new agent support)
-"src/discoverers/**":
-  - "agent-support"
-  - "discoverer"
+typescript:
+  - changed-files:
+      - any-glob-to-any-file: "src/**/*.ts"
 
-# Extractors (parsing logic)
-"src/extractors/**":
-  - "agent-support"
-  - "extractor"
+agent-support:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/discoverers/**"
+          - "src/extractors/**"
 
-# Tests
-"test/**":
-  - "tests"
+discoverer:
+  - changed-files:
+      - any-glob-to-any-file: "src/discoverers/**"
 
-# CI / workflow
-".github/**":
-  - "ci"
-  - "automation"
+extractor:
+  - changed-files:
+      - any-glob-to-any-file: "src/extractors/**"
 
-# Documentation
-"docs/**":
-  - "documentation"
+tests:
+  - changed-files:
+      - any-glob-to-any-file: "test/**"
 
-"README.md":
-  - "documentation"
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
 
-"SETUP.md":
-  - "documentation"
+automation:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
 
-"PLAN.md":
-  - "documentation"
-  - "planning"
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "README.md"
+          - "SETUP.md"
+          - "PLAN.md"
 
-# Configuration
-"package.json":
-  - "configuration"
+planning:
+  - changed-files:
+      - any-glob-to-any-file: "PLAN.md"
 
-"package-lock.json":
-  - "dependencies"
+configuration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "tsconfig.json"
+          - ".eslintrc.json"
+          - ".prettierrc"
 
-"tsconfig.json":
-  - "configuration"
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: "package-lock.json"
 
-".eslintrc.json":
-  - "configuration"
-  - "linting"
+linting:
+  - changed-files:
+      - any-glob-to-any-file: ".eslintrc.json"
 
-".prettierrc":
-  - "configuration"
-  - "formatting"
+formatting:
+  - changed-files:
+      - any-glob-to-any-file: ".prettierrc"
 
-# Renderers
-"src/renderers/**":
-  - "renderer"
+renderer:
+  - changed-files:
+      - any-glob-to-any-file: "src/renderers/**"
