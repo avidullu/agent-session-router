@@ -18,7 +18,7 @@ jobs:
   # ── Lint + Format gate (fast, runs first) ──────────────────────────
   lint-format:
     name: lint-format (node ${{ matrix.node-version }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-latest' || 'ci-light' }}
     strategy:
       fail-fast: false
       matrix:
@@ -50,7 +50,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # Forgejo uses the heavyweight Linux pool plus its native Windows runner;
+        # GitHub keeps the full hosted OS matrix, including macOS.
+        os: ${{ github.server_url == 'https://github.com' && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ci-heavy", "windows-latest"]') }}
         node-version: ["20", "22"]
         # Exclude combinations that add no coverage:
         # - Windows-only CRLF golden-fixture risk tested on Node 20
@@ -83,7 +85,7 @@ jobs:
   # (allowlisted: fixtures with `example-user` placeholder).
   pii-scan:
     name: PII scan (user paths)
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-latest' || 'ci-light' }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
@@ -107,7 +109,7 @@ jobs:
   # historical-by-design.
   link-check:
     name: Markdown link check (live docs)
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-latest' || 'ci-light' }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5

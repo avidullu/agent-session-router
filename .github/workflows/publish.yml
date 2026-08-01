@@ -17,7 +17,7 @@ permissions:
 jobs:
   publish:
     name: Publish to Marketplaces
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-latest' || 'ci-heavy' }}
     timeout-minutes: 10
     # Map secrets to env at the job level: the `secrets` context is NOT
     # available in step `if:` conditions (only `env` is), so referencing
