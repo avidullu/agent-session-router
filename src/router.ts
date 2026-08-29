@@ -8,6 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import * as vscode from 'vscode';
 import { DiscoveredSession, ExportRecord } from './types';
 import { getDiscoverer } from './discoverers/index';
@@ -54,8 +55,12 @@ function autoLoadModules(dir: string): void {
 autoLoadModules('discoverers');
 autoLoadModules('extractors');
 
-/** In-memory cache of previous export records (keyed by filePath). */
+/** In-memory cache of previous export records (keyed by source file and logical session). */
 const exportCache = new Map<string, ExportRecord>();
+
+function exportCacheKey(session: DiscoveredSession): string {
+    return `${session.sourceKind}\u0000${session.filePath}\u0000${session.sessionId}`;
+}
 
 export type ExportOutcome =
     | { status: 'exported'; record: ExportRecord }
@@ -70,9 +75,17 @@ export function resolveOutputDir(config: Config): string {
     if (config.outputDir) {
         return config.outputDir;
     }
+    const explicitHub = process.env.AGENT_SESSIONS_HOME;
+    if (explicitHub) {
+        return path.join(explicitHub, 'archive');
+    }
     // Default: try to find Agent Sessions repo relative to common locations
+    const homeDir = process.env.USERPROFILE || os.homedir();
     const candidates = [
-        path.join(process.env.USERPROFILE || '~', 'Projects', 'Agent Sessions', 'archive'),
+        path.join(homeDir, 'Projects', 'Agent Sessions', 'archive'),
+        path.join(homeDir, 'Projects', 'agent-sessions', 'archive'),
+        path.join(homeDir, 'projects', 'agent-sessions', 'archive'),
+        path.join(homeDir, 'Siva', 'infra', 'agent-sessions', 'archive'),
     ];
     for (const candidate of candidates) {
         if (fs.existsSync(candidate)) {
@@ -80,7 +93,7 @@ export function resolveOutputDir(config: Config): string {
         }
     }
     // Fallback to a local staging directory
-    return path.join(process.env.USERPROFILE || '~', '.agent-sessions-staging');
+    return path.join(homeDir, '.agent-sessions-staging');
 }
 
 export async function discoverAllSessions(
@@ -118,6 +131,9 @@ export async function exportSession(
     outputDir: string,
 ): Promise<ExportRecord | null> {
     const outcome = await exportSessionWithOutcome(session, outputDir);
+    if (outcome.record) {
+        writeRouterIndex(outputDir, [outcome.record]);
+    }
     return outcome.record;
 }
 
@@ -137,27 +153,46 @@ export async function exportSessionWithOutcome(
     }
 
     // Check cache for unchanged files
-    const cached = exportCache.get(session.filePath) ?? null;
-    let cachedTailSha256: string | undefined;
+    const cacheKey = exportCacheKey(session);
+    const cached = exportCache.get(cacheKey) ?? null;
     if (
-        cached?.tailSha256 &&
-        cached.sizeBytes === session.sizeBytes &&
-        cached.mtimeMs === session.mtimeMs
+        cached &&
+        session.sourceRevision &&
+        cached.sourceRevision === session.sourceRevision
     ) {
-        try {
-            cachedTailSha256 = tailSha256File(session.filePath);
-        } catch {
-            cachedTailSha256 = undefined;
-        }
-    }
-    if (cached && canReuseRecord(cached, session.sizeBytes, session.mtimeMs, cachedTailSha256)) {
         logSkip(
             session.sourceKind,
             session.filePath,
             session.sessionId,
-            'Unchanged since last export (cached)',
+            'Logical session unchanged since last export (cached)',
         );
         return { status: 'skipped', record: cached };
+    }
+    if (!session.sourceRevision) {
+        let cachedTailSha256: string | undefined;
+        if (
+            cached?.tailSha256 &&
+            cached.sizeBytes === session.sizeBytes &&
+            cached.mtimeMs === session.mtimeMs
+        ) {
+            try {
+                cachedTailSha256 = tailSha256File(session.filePath);
+            } catch {
+                cachedTailSha256 = undefined;
+            }
+        }
+        if (
+            cached &&
+            canReuseRecord(cached, session.sizeBytes, session.mtimeMs, cachedTailSha256)
+        ) {
+            logSkip(
+                session.sourceKind,
+                session.filePath,
+                session.sessionId,
+                'Unchanged since last export (cached)',
+            );
+            return { status: 'skipped', record: cached };
+        }
     }
 
     // Extract
@@ -169,7 +204,7 @@ export async function exportSessionWithOutcome(
     );
     let extracted;
     try {
-        extracted = extractor(session.filePath);
+        extracted = extractor(session.filePath, session.sessionId);
     } catch (err) {
         extractDone();
         const error = err instanceof Error ? err : new Error(String(err));
@@ -205,7 +240,7 @@ export async function exportSessionWithOutcome(
     // Compute digest
     let digest: string;
     try {
-        digest = sha256File(session.filePath);
+        digest = extracted.sourceDigest ?? sha256File(session.filePath);
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         logExtractError(session.sourceKind, session.filePath, session.sessionId, error);
@@ -262,6 +297,7 @@ export async function exportSessionWithOutcome(
         digest,
         sizeBytes: session.sizeBytes,
         mtimeMs: session.mtimeMs,
+        sourceRevision: session.sourceRevision,
         markdownPath,
         markdownRel,
         messages: extracted.messages.length,
@@ -270,7 +306,7 @@ export async function exportSessionWithOutcome(
         exportedAt: isoNow(),
     };
 
-    exportCache.set(session.filePath, record);
+    exportCache.set(cacheKey, record);
     return { status: 'exported', record };
 }
 

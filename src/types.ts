@@ -20,6 +20,8 @@ export interface ExtractedSession {
     metadata: Record<string, unknown>;
     /** Ordered list of conversation messages */
     messages: SessionMessage[];
+    /** Logical source digest for stores where one file contains many sessions. */
+    sourceDigest?: string;
 }
 
 export interface DiscoveredSession {
@@ -35,12 +37,14 @@ export interface DiscoveredSession {
     sizeBytes: number;
     /** Last modified time in milliseconds since epoch */
     mtimeMs: number;
+    /** Per-session revision for multi-session stores such as Copilot SQLite. */
+    sourceRevision?: string;
 }
 
 /**
  * An extractor function: takes a file path, returns an ExtractedSession.
  */
-export type Extractor = (filePath: string) => ExtractedSession;
+export type Extractor = (filePath: string, sessionId?: string) => ExtractedSession;
 
 /**
  * A discoverer function: returns an async iterable of DiscoveredSession.
@@ -55,6 +59,8 @@ export interface ExportRecord {
     digest: string;
     sizeBytes: number;
     mtimeMs: number;
+    /** Per-session revision used to avoid invalid cache hits in shared stores. */
+    sourceRevision?: string;
     /** Absolute path to the written Markdown file. */
     markdownPath: string;
     /** Repo-relative POSIX path, for the .router-index.jsonl `markdown` field. */

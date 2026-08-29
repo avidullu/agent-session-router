@@ -1,6 +1,7 @@
 // Unit tests for export outcome classification.
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const Module = require('module');
 const os = require('os');
@@ -88,6 +89,25 @@ function makeSession(tmpDir, name, sourceKind) {
         registerExtractor('coverage_throw', () => {
             throw new Error('boom');
         });
+        registerExtractor('coverage_multistore', (_filePath, sessionId) => ({
+            metadata: { session_id: sessionId },
+            messages: [{ role: 'user', text: `hello ${sessionId}` }],
+            sourceDigest: crypto.createHash('sha256').update(String(sessionId)).digest('hex'),
+        }));
+
+        await test('output resolution accepts an explicit Agent Sessions checkout', async () => {
+            const previous = process.env.AGENT_SESSIONS_HOME;
+            process.env.AGENT_SESSIONS_HOME = path.join(tmpDir, 'hub');
+            try {
+                assert.strictEqual(
+                    router.resolveOutputDir({ outputDir: '' }),
+                    path.join(tmpDir, 'hub', 'archive'),
+                );
+            } finally {
+                if (previous === undefined) delete process.env.AGENT_SESSIONS_HOME;
+                else process.env.AGENT_SESSIONS_HOME = previous;
+            }
+        });
 
         await test('successful exports are counted as exported', async () => {
             router.resetExportCache();
@@ -120,6 +140,52 @@ function makeSession(tmpDir, name, sourceKind) {
             assert.strictEqual(first.status, 'exported');
             assert.strictEqual(second.status, 'exported');
             assert.notStrictEqual(first.record.digest, second.record.digest);
+        });
+
+        await test('multi-session stores use independent cache identities', async () => {
+            router.resetExportCache();
+            const firstSession = makeSession(tmpDir, 'shared-store', 'coverage_multistore');
+            firstSession.sessionId = 'session-a';
+            firstSession.sourceRevision = 'revision-a';
+            const secondSession = { ...firstSession, sessionId: 'session-b', sourceRevision: 'revision-b' };
+
+            const first = await router.exportSessionWithOutcome(firstSession, outputDir);
+            const second = await router.exportSessionWithOutcome(secondSession, outputDir);
+            const firstAgain = await router.exportSessionWithOutcome(firstSession, outputDir);
+
+            assert.strictEqual(first.status, 'exported');
+            assert.strictEqual(second.status, 'exported');
+            assert.notStrictEqual(first.record.markdownPath, second.record.markdownPath);
+            assert.strictEqual(firstAgain.status, 'skipped');
+        });
+
+        await test('a changed logical revision invalidates a shared-store cache entry', async () => {
+            router.resetExportCache();
+            const session = makeSession(tmpDir, 'revision-store', 'coverage_multistore');
+            session.sessionId = 'session-revision';
+            session.sourceRevision = 'revision-1';
+            const first = await router.exportSessionWithOutcome(session, outputDir);
+            const second = await router.exportSessionWithOutcome(
+                { ...session, sourceRevision: 'revision-2' },
+                outputDir,
+            );
+            assert.strictEqual(first.status, 'exported');
+            assert.strictEqual(second.status, 'exported');
+        });
+
+        await test('single-session exports update the router sidecar', async () => {
+            router.resetExportCache();
+            const session = makeSession(tmpDir, 'sidecar-1', 'coverage_success');
+            const record = await router.exportSession(session, outputDir);
+            assert.ok(record);
+            const indexPath = path.join(outputDir, '.router-index.jsonl');
+            assert.ok(fs.existsSync(indexPath));
+            const records = fs
+                .readFileSync(indexPath, 'utf-8')
+                .trim()
+                .split('\n')
+                .map((line) => JSON.parse(line));
+            assert.ok(records.some((item) => item.metadata.session_id === 'success-1'));
         });
 
         await test('empty extracted sessions are counted as skipped', async () => {

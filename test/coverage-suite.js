@@ -1020,7 +1020,10 @@ function isSessionFile(filePath) {
     const isDeepSeek = filePath.includes('request-dumps') && filePath.endsWith('.json');
     const isCopilotTranscript = filePath.includes('transcripts') && filePath.endsWith('.jsonl');
     const isCopilotDebugLog = filePath.includes('debug-logs') && filePath.endsWith('main.jsonl');
-    return isDeepSeek || isCopilotTranscript || isCopilotDebugLog;
+    const isCopilotStore =
+        filePath.includes('github.copilot-chat') &&
+        (filePath.endsWith('session-store.db') || filePath.endsWith('session-store.db-wal'));
+    return isDeepSeek || isCopilotTranscript || isCopilotDebugLog || isCopilotStore;
 }
 
 function determineSourceKind(filePath) {
@@ -1032,9 +1035,9 @@ function determineSourceKind(filePath) {
 
 function determineSourceName(filePath) {
     if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {
-        return 'deepseek-vscode-auto';
+        return 'deepseek-vscode';
     }
-    return 'copilot-vscode-auto';
+    return 'copilot-vscode';
 }
 
 function extractSessionId(filePath) {
@@ -1065,6 +1068,12 @@ test('watcher: isSessionFile detects copilot debug log', () => {
     assertEqual(isSessionFile('/ws/debug-logs/uuid/other.jsonl'), false);
 });
 
+test('watcher: isSessionFile detects current Copilot SQLite store changes', () => {
+    assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db'), true);
+    assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db-wal'), true);
+    assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db-shm'), false);
+});
+
 test('watcher: isSessionFile rejects non-session files', () => {
     assertEqual(isSessionFile('/tmp/random.txt'), false);
     assertEqual(isSessionFile('/tmp/models.json'), false);
@@ -1092,8 +1101,8 @@ test('watcher: determineSourceKind copilot default', () => {
 
 // ── determineSourceName ──
 test('watcher: determineSourceName', () => {
-    assertEqual(determineSourceName('/deepseek/request-dumps/x.json'), 'deepseek-vscode-auto');
-    assertEqual(determineSourceName('/copilot/transcripts/x.jsonl'), 'copilot-vscode-auto');
+    assertEqual(determineSourceName('/deepseek/request-dumps/x.json'), 'deepseek-vscode');
+    assertEqual(determineSourceName('/copilot/transcripts/x.jsonl'), 'copilot-vscode');
 });
 
 // ── extractSessionId ──

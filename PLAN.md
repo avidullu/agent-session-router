@@ -21,17 +21,17 @@ the user's machine by default.
 
 ## 2. Supported Sources
 
-| Source                                  | Storage Pattern                             | Status                                              |
-| --------------------------------------- | ------------------------------------------- | --------------------------------------------------- |
-| GitHub Copilot Chat                     | VS Code `workspaceStorage` JSONL/debug logs | Supported                                           |
-| DeepSeek V4                             | VS Code `globalStorage` request dumps       | Supported                                           |
-| Continue.dev                            | `~/.continue/sessions/`                     | Supported                                           |
-| Cline                                   | VS Code `globalStorage` task history        | Supported                                           |
-| Cody                                    | VS Code `globalStorage` chat history        | Supported                                           |
-| Aider                                   | Project `.aider*` files                     | Supported                                           |
-| Gemini Antigravity                      | `~/.gemini/antigravity/brain/` logs         | Supported                                           |
-| Tabby, Codeium, Amazon Q                | Generic VS Code `globalStorage` fallback    | Supported where text/JSON session files are present |
-| Grok, Claude, Gemini via VS Code LM API | Copilot Chat storage                        | Supported through `copilot_chat`                    |
+| Source                                  | Storage Pattern                              | Status                                              |
+| --------------------------------------- | -------------------------------------------- | --------------------------------------------------- |
+| GitHub Copilot Chat                     | Global SQLite store + legacy workspace JSONL | Supported; SQLite needs Node 22.5+ host             |
+| DeepSeek V4                             | VS Code `globalStorage` request dumps        | Supported                                           |
+| Continue.dev                            | `~/.continue/sessions/`                      | Supported                                           |
+| Cline                                   | VS Code `globalStorage` task history         | Supported                                           |
+| Cody                                    | VS Code `globalStorage` chat history         | Supported                                           |
+| Aider                                   | Project `.aider*` files                      | Supported                                           |
+| Gemini Antigravity                      | `~/.gemini/antigravity/brain/` logs          | Supported                                           |
+| Tabby, Codeium, Amazon Q                | Generic VS Code `globalStorage` fallback     | Supported where text/JSON session files are present |
+| Grok, Claude, Gemini via VS Code LM API | Copilot Chat storage                         | Supported through `copilot_chat`                    |
 
 The Agent Sessions hub continues to own direct CLI ingestion for Claude Code,
 Codex CLI, Gemini CLI, Grok CLI, and other non-VS-Code sources.
@@ -76,10 +76,11 @@ Current full test suite:
 | ---------------------- | ----: |
 | Contract conformance   |     6 |
 | Router index           |     6 |
-| Router export outcomes |     6 |
-| Coverage suite         |    83 |
+| Router export outcomes |    10 |
+| Copilot SQLite store   |     1 |
+| Coverage suite         |    84 |
 | Smoke tests            |     6 |
-| Total                  |   107 |
+| Total                  |   113 |
 
 CI runs lint/format plus build-test across Windows, macOS, and Linux on Node 20
 and Node 22. The PR labeler workflow is non-product CI and is currently allowed

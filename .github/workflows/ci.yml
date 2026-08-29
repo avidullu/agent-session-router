@@ -54,12 +54,11 @@ jobs:
         # GitHub keeps the full hosted OS matrix, including macOS.
         os: ${{ github.server_url == 'https://github.com' && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ci-heavy", "windows-latest"]') }}
         node-version: ["20", "22"]
-        # Exclude combinations that add no coverage:
-        # - Windows-only CRLF golden-fixture risk tested on Node 20
+        # macOS-specific path behavior is covered on Node 20. Keep Windows on
+        # Node 22 so the built-in SQLite backend used by current Copilot stores
+        # is exercised on the platform where it is used most often.
         exclude:
           - os: macos-latest
-            node-version: "22"
-          - os: windows-latest
             node-version: "22"
     steps:
       - name: Check out

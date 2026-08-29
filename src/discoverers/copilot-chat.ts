@@ -11,6 +11,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { DiscoveredSession } from '../types';
 import { registerDiscoverer } from './index';
+import { listCopilotStoreSessions } from '../copilot-session-store';
 
 const COPILOT_EXTENSION_ID = 'github.copilot-chat';
 
@@ -39,7 +40,79 @@ function getWorkspaceStorageRoots(): string[] {
     return roots;
 }
 
+function getGlobalStorageRoots(): string[] {
+    const roots: string[] = [];
+    const appData = process.env.APPDATA;
+    if (appData) roots.push(path.join(appData, 'Code', 'User', 'globalStorage'));
+
+    const configDir = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+    roots.push(path.join(configDir, 'Code', 'User', 'globalStorage'));
+    roots.push(path.join(os.homedir(), '.vscode-server', 'data', 'User', 'globalStorage'));
+    roots.push(path.join(os.homedir(), '.vscode-server-insiders', 'data', 'User', 'globalStorage'));
+    roots.push(
+        path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'globalStorage'),
+    );
+
+    // A Remote-WSL extension host can see both its Linux store and the Windows
+    // VS Code store. Include existing Windows profiles so one router instance
+    // can keep both sides of a Surface-style setup current.
+    const windowsUsersRoot = '/mnt/c/Users';
+    if (os.release().toLowerCase().includes('microsoft') && fs.existsSync(windowsUsersRoot)) {
+        try {
+            for (const entry of fs.readdirSync(windowsUsersRoot, { withFileTypes: true })) {
+                if (!entry.isDirectory()) continue;
+                roots.push(
+                    path.join(
+                        windowsUsersRoot,
+                        entry.name,
+                        'AppData',
+                        'Roaming',
+                        'Code',
+                        'User',
+                        'globalStorage',
+                    ),
+                );
+            }
+        } catch {
+            // Mounted Windows profiles are optional; native WSL roots still work.
+        }
+    }
+
+    return Array.from(new Set(roots));
+}
+
 async function* discoverCopilotChatSessions(): AsyncIterable<DiscoveredSession> {
+    const sqliteSessionIds = new Set<string>();
+
+    for (const storageRoot of getGlobalStorageRoots()) {
+        const storePath = path.join(storageRoot, COPILOT_EXTENSION_ID, 'session-store.db');
+        if (!fs.existsSync(storePath)) continue;
+
+        const stat = fs.statSync(storePath);
+        let sessions;
+        try {
+            sessions = listCopilotStoreSessions(storePath);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[agent-session-router] Cannot read ${storePath}: ${message}`);
+            continue;
+        }
+
+        for (const session of sessions) {
+            if (session.messageCount === 0) continue;
+            sqliteSessionIds.add(session.sessionId);
+            yield {
+                sourceName: 'copilot-vscode',
+                sourceKind: 'copilot_chat',
+                filePath: storePath,
+                sessionId: session.sessionId,
+                sizeBytes: stat.size,
+                mtimeMs: stat.mtimeMs,
+                sourceRevision: session.revision,
+            };
+        }
+    }
+
     for (const wsRoot of getWorkspaceStorageRoots()) {
         if (!fs.existsSync(wsRoot)) continue;
 
@@ -63,6 +136,8 @@ async function* discoverCopilotChatSessions(): AsyncIterable<DiscoveredSession> 
                     const stat = fs.statSync(filePath);
                     const sessionId = file.name.replace('.jsonl', '');
 
+                    if (sqliteSessionIds.has(sessionId)) continue;
+
                     foundInTranscripts.add(sessionId);
 
                     yield {
@@ -83,6 +158,7 @@ async function* discoverCopilotChatSessions(): AsyncIterable<DiscoveredSession> 
                 for (const sessionDir of sessionDirs) {
                     if (!sessionDir.isDirectory()) continue;
                     if (foundInTranscripts.has(sessionDir.name)) continue;
+                    if (sqliteSessionIds.has(sessionDir.name)) continue;
 
                     const mainJsonl = path.join(debugLogsDir, sessionDir.name, 'main.jsonl');
                     if (!fs.existsSync(mainJsonl)) continue;

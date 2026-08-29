@@ -153,8 +153,13 @@ function extractProviderInputFormat(
             let text = '';
             if (Array.isArray(msg.contentParts)) {
                 text = msg.contentParts
-                    .filter((p: ContentPart) => p.type === 'text' && p.value)
-                    .map((p: ContentPart) => p.value!)
+                    .filter(
+                        (part: ContentPart): part is ContentPart & { value: string } =>
+                            part.type === 'text' &&
+                            typeof part.value === 'string' &&
+                            Boolean(part.value),
+                    )
+                    .map((part) => part.value)
                     .join('\n');
             }
 

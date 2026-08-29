@@ -479,6 +479,9 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     // Start watcher
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStart', async () => {
+            await vscode.workspace
+                .getConfiguration('agentSessionRouter')
+                .update('watch.enabled', true, vscode.ConfigurationTarget.Global);
             await startWatcher();
         }),
     );
@@ -487,6 +490,9 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStop', async () => {
             await stopWatcher();
+            await vscode.workspace
+                .getConfiguration('agentSessionRouter')
+                .update('watch.enabled', false, vscode.ConfigurationTarget.Global);
         }),
     );
 

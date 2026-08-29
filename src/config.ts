@@ -3,7 +3,7 @@
  */
 
 // vscode may not be available when running outside VS Code (e.g., tests)
-let vscodeApi: any;
+let vscodeApi: typeof import('vscode') | undefined;
 try {
     vscodeApi = require('vscode');
 } catch {
@@ -51,10 +51,14 @@ export function getConfig(): Config {
     if (!vscodeApi) {
         return { ...DEFAULT_CONFIG };
     }
-    const cfg: any = vscodeApi.workspace.getConfiguration('agentSessionRouter');
+    const cfg = vscodeApi.workspace.getConfiguration('agentSessionRouter');
 
     // Read sources as a generic object — any key works (pluggable)
-    const sourcesConfig: Record<string, any> = cfg.get('sources', {}) || {};
+    const rawSources: unknown = cfg.get('sources', {});
+    const sourcesConfig: Record<string, unknown> =
+        rawSources && typeof rawSources === 'object'
+            ? (rawSources as Record<string, unknown>)
+            : {};
     const sources: Record<string, SourceConfig> = {};
 
     // Backward-compat: map old config keys (v0.1.x) to new discoverer-kind keys.
@@ -66,7 +70,9 @@ export function getConfig(): Config {
 
     for (const [key, val] of Object.entries(sourcesConfig)) {
         if (val && typeof val === 'object' && 'enabled' in val) {
-            sources[key] = { enabled: (val as any).enabled !== false };
+            sources[key] = {
+                enabled: (val as Record<string, unknown>).enabled !== false,
+            };
         } else if (val && typeof val === 'object') {
             sources[key] = { enabled: true };
         }
