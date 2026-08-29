@@ -232,7 +232,11 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             let sourceKind = 'deepseek_request_dump';
             let sourceName = 'manual-export';
 
-            if (filePath.includes('copilot-chat') || filePath.includes('debug-logs')) {
+            if (
+                filePath.includes('copilot-chat') ||
+                filePath.includes('debug-logs') ||
+                path.basename(path.dirname(filePath)) === 'chatSessions'
+            ) {
                 sourceKind = 'copilot_chat';
                 sourceName = 'copilot-vscode-manual';
             } else if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {

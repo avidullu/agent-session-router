@@ -1020,10 +1020,19 @@ function isSessionFile(filePath) {
     const isDeepSeek = filePath.includes('request-dumps') && filePath.endsWith('.json');
     const isCopilotTranscript = filePath.includes('transcripts') && filePath.endsWith('.jsonl');
     const isCopilotDebugLog = filePath.includes('debug-logs') && filePath.endsWith('main.jsonl');
+    const isNativeVSCodeChat =
+        require('path').basename(require('path').dirname(filePath)) === 'chatSessions' &&
+        filePath.endsWith('.jsonl');
     const isCopilotStore =
         filePath.includes('github.copilot-chat') &&
         (filePath.endsWith('session-store.db') || filePath.endsWith('session-store.db-wal'));
-    return isDeepSeek || isCopilotTranscript || isCopilotDebugLog || isCopilotStore;
+    return (
+        isDeepSeek ||
+        isCopilotTranscript ||
+        isCopilotDebugLog ||
+        isNativeVSCodeChat ||
+        isCopilotStore
+    );
 }
 
 function determineSourceKind(filePath) {
@@ -1072,6 +1081,11 @@ test('watcher: isSessionFile detects current Copilot SQLite store changes', () =
     assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db'), true);
     assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db-wal'), true);
     assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db-shm'), false);
+});
+
+test('watcher: isSessionFile detects native VS Code chat session logs', () => {
+    assertEqual(isSessionFile('/workspaceStorage/hash/chatSessions/session.jsonl'), true);
+    assertEqual(isSessionFile('/workspaceStorage/hash/chatSessions/session.json'), false);
 });
 
 test('watcher: isSessionFile rejects non-session files', () => {

@@ -12,6 +12,7 @@ import * as os from 'os';
 import { DiscoveredSession } from '../types';
 import { registerDiscoverer } from './index';
 import { listCopilotStoreSessions } from '../copilot-session-store';
+import { inspectVSCodeChatSession } from '../vscode-chat-session';
 
 const COPILOT_EXTENSION_ID = 'github.copilot-chat';
 
@@ -37,7 +38,29 @@ function getWorkspaceStorageRoots(): string[] {
         ),
     );
 
-    return roots;
+    const windowsUsersRoot = '/mnt/c/Users';
+    if (os.release().toLowerCase().includes('microsoft') && fs.existsSync(windowsUsersRoot)) {
+        try {
+            for (const entry of fs.readdirSync(windowsUsersRoot, { withFileTypes: true })) {
+                if (!entry.isDirectory()) continue;
+                roots.push(
+                    path.join(
+                        windowsUsersRoot,
+                        entry.name,
+                        'AppData',
+                        'Roaming',
+                        'Code',
+                        'User',
+                        'workspaceStorage',
+                    ),
+                );
+            }
+        } catch {
+            // Mounted Windows profiles are optional; native WSL roots still work.
+        }
+    }
+
+    return Array.from(new Set(roots));
 }
 
 function getGlobalStorageRoots(): string[] {
@@ -81,6 +104,56 @@ function getGlobalStorageRoots(): string[] {
     return Array.from(new Set(roots));
 }
 
+function collectNativeChatSessions(workspaceRoots: string[]): DiscoveredSession[] {
+    const newestBySession = new Map<string, DiscoveredSession>();
+    for (const wsRoot of workspaceRoots) {
+        if (!fs.existsSync(wsRoot)) continue;
+        const wsDirs = fs.readdirSync(wsRoot, { withFileTypes: true });
+        for (const wsDir of wsDirs) {
+            if (!wsDir.isDirectory()) continue;
+            const nativeChatDir = path.join(wsRoot, wsDir.name, 'chatSessions');
+            if (!fs.existsSync(nativeChatDir)) continue;
+
+            const files = fs.readdirSync(nativeChatDir, { withFileTypes: true });
+            for (const file of files) {
+                if (!file.isFile() || !file.name.endsWith('.jsonl')) continue;
+                const filePath = path.join(nativeChatDir, file.name);
+                let summary;
+                try {
+                    summary = inspectVSCodeChatSession(filePath);
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`[agent-session-router] Cannot read ${filePath}: ${message}`);
+                    continue;
+                }
+                if (summary.messageCount === 0) continue;
+
+                const stat = fs.statSync(filePath);
+                const provider = summary.modelProvider?.replace(/[^a-z0-9-]/g, '');
+                const candidate: DiscoveredSession = {
+                    sourceName:
+                        provider && provider !== 'copilot'
+                            ? `${provider}-vscode`
+                            : 'copilot-vscode',
+                    sourceKind: 'copilot_chat',
+                    filePath,
+                    sessionId: summary.sessionId,
+                    sizeBytes: stat.size,
+                    mtimeMs: stat.mtimeMs,
+                    sourceRevision: summary.revision,
+                };
+                const previous = newestBySession.get(summary.sessionId);
+                if (!previous || candidate.mtimeMs > previous.mtimeMs) {
+                    newestBySession.set(summary.sessionId, candidate);
+                }
+            }
+        }
+    }
+    return Array.from(newestBySession.values()).sort((a, b) =>
+        a.sessionId.localeCompare(b.sessionId),
+    );
+}
+
 async function* discoverCopilotChatSessions(): AsyncIterable<DiscoveredSession> {
     const sqliteSessionIds = new Set<string>();
 
@@ -113,7 +186,12 @@ async function* discoverCopilotChatSessions(): AsyncIterable<DiscoveredSession> 
         }
     }
 
-    for (const wsRoot of getWorkspaceStorageRoots()) {
+    const workspaceRoots = getWorkspaceStorageRoots();
+    for (const session of collectNativeChatSessions(workspaceRoots)) {
+        yield session;
+    }
+
+    for (const wsRoot of workspaceRoots) {
         if (!fs.existsSync(wsRoot)) continue;
 
         const wsDirs = fs.readdirSync(wsRoot, { withFileTypes: true });

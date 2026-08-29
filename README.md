@@ -103,7 +103,7 @@ Markdown files that the Agent Sessions hub can index.
 
 | Agent                             | Source                  | Status                                      |
 | --------------------------------- | ----------------------- | ------------------------------------------- |
-| **GitHub Copilot Chat**           | VS Code extension       | ✅ Current SQLite store + legacy JSONL      |
+| **GitHub Copilot Chat**           | VS Code extension       | ✅ Native chat JSONL + current SQLite + legacy JSONL |
 | **DeepSeek V4**                   | VS Code extension       | ✅ Full support                             |
 | **Continue.dev**                  | VS Code extension       | ✅ Discover + Extract                       |
 | **Cline**                         | VS Code extension       | ✅ Discover + Extract                       |
@@ -111,7 +111,7 @@ Markdown files that the Agent Sessions hub can index.
 | **Aider**                         | VS Code extension       | ✅ Discover + Extract                       |
 | **Gemini Antigravity**            | VS Code extension + IDE | ✅ Discover + Extract                       |
 | **Tabby, Codeium, Amazon Q**      | VS Code extensions      | ✅ Via generic globalStorage                |
-| **Grok, Claude, Gemini (LM API)** | Via Copilot Chat        | ✅ Same storage                             |
+| **Z.AI, Grok, Claude, Gemini (LM API)** | VS Code native chat | ✅ Provider-aware native chat JSONL         |
 | **OpenAI ChatGPT**                | Via Codex CLI           | ✅ Via Codex extractor                      |
 
 > New agents are auto-discovered on the next scan — no configuration needed.

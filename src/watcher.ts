@@ -15,6 +15,7 @@ import { exportSession, resolveOutputDir } from './router';
 import { fileStat } from './utils';
 import { logWatcherEvent } from './logger';
 import { listCopilotStoreSessions } from './copilot-session-store';
+import { inspectVSCodeChatSession } from './vscode-chat-session';
 
 // ---------------------------------------------------------------------------
 // Chokidar dynamic import (falls back to VS Code FileSystemWatcher)
@@ -146,6 +147,17 @@ function getWatchPaths(): string[] {
                         'Roaming',
                         'Code',
                         'User',
+                        'workspaceStorage',
+                    ),
+                );
+                paths.push(
+                    path.join(
+                        windowsUsersRoot,
+                        entry.name,
+                        'AppData',
+                        'Roaming',
+                        'Code',
+                        'User',
                         'globalStorage',
                         'github.copilot-chat',
                     ),
@@ -167,10 +179,18 @@ function isSessionFile(filePath: string): boolean {
     const isDeepSeek = filePath.includes('request-dumps') && filePath.endsWith('.json');
     const isCopilotTranscript = filePath.includes('transcripts') && filePath.endsWith('.jsonl');
     const isCopilotDebugLog = filePath.includes('debug-logs') && filePath.endsWith('main.jsonl');
+    const isNativeVSCodeChat =
+        path.basename(path.dirname(filePath)) === 'chatSessions' && filePath.endsWith('.jsonl');
     const isCopilotStore =
         filePath.includes('github.copilot-chat') &&
         (filePath.endsWith('session-store.db') || filePath.endsWith('session-store.db-wal'));
-    return isDeepSeek || isCopilotTranscript || isCopilotDebugLog || isCopilotStore;
+    return (
+        isDeepSeek ||
+        isCopilotTranscript ||
+        isCopilotDebugLog ||
+        isNativeVSCodeChat ||
+        isCopilotStore
+    );
 }
 
 function determineSourceKind(filePath: string): string {
@@ -235,6 +255,37 @@ async function handleFileEvent(filePath: string, event: 'change' | 'create'): Pr
                         resolveOutputDir(config),
                     );
                 }
+                return;
+            }
+
+            if (path.basename(path.dirname(eventKey)) === 'chatSessions') {
+                const stat = fileStat(eventKey);
+                const summary = inspectVSCodeChatSession(eventKey);
+                if (summary.messageCount === 0) return;
+                const provider = summary.modelProvider?.replace(/[^a-z0-9-]/g, '');
+                const sourceName =
+                    provider && provider !== 'copilot'
+                        ? `${provider}-vscode`
+                        : 'copilot-vscode';
+                logWatcherEvent(event, eventKey, {
+                    sourceKind: 'copilot_chat',
+                    sourceName,
+                    sessionId: summary.sessionId,
+                    messages: summary.messageCount,
+                    sizeBytes: stat.size,
+                });
+                await exportSession(
+                    {
+                        sourceName,
+                        sourceKind: 'copilot_chat',
+                        filePath: eventKey,
+                        sessionId: summary.sessionId,
+                        sizeBytes: stat.size,
+                        mtimeMs: stat.mtimeMs,
+                        sourceRevision: summary.revision,
+                    },
+                    resolveOutputDir(config),
+                );
                 return;
             }
 
