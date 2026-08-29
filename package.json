@@ -2,7 +2,7 @@
     "name": "agent-session-router",
     "displayName": "Agent Session Router",
     "description": "Automatically archive your AI coding sessions. Discovers conversations from Copilot Chat, DeepSeek, Continue, Cline, and more — exports local Markdown files for the Agent Sessions archive.",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "publisher": "avidullu",
     "license": "MIT",
     "repository": {

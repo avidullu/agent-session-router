@@ -14,7 +14,7 @@ Automatically archive your AI coding sessions. Discovers conversations from
 and more — exports them as searchable Markdown files into your
 [Agent Sessions](https://github.com/avidullu/agent-sessions) archive.
 
-> **🎉 Live on the Marketplace** — v0.1.0 is published and ready for daily use:
+> **🎉 Live on the Marketplace** — v0.2.0 is published and ready for daily use:
 > [marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router).
 > 116 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
 
@@ -39,7 +39,7 @@ Then run **Agent Session Router: Export All Sessions** from the Command Palette
 1. Download the latest `.vsix` from [Releases](https://github.com/avidullu/agent-session-router/releases)
 2. Install:
    ```bash
-   code --install-extension agent-session-router-0.1.0.vsix --force
+   code --install-extension agent-session-router-0.2.0.vsix --force
    ```
 3. **Reload VS Code** (`Ctrl+Shift+P` → "Developer: Reload Window")
 
