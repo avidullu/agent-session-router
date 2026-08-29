@@ -4,7 +4,7 @@ name: Publish
 # Requires secret: VSCE_PAT (Azure DevOps PAT with Marketplace → Manage scope).
 # Optional secret: OVSX_PAT (Open VSX token).
 #
-# Then push a tag: git tag v0.1.0 && git push origin v0.1.0
+# Then push a version tag, for example: git tag v0.2.0 && git push origin v0.2.0
 
 on:
   push:
@@ -30,7 +30,9 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          # Node 22.5+ exercises the Copilot session-store.db integration test
+          # instead of taking its compatibility skip path.
+          node-version: "22"
           cache: npm
 
       - name: Install

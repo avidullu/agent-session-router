@@ -14,6 +14,9 @@ import { getConfig } from './config';
 import { exportSession, resolveOutputDir } from './router';
 import { fileStat } from './utils';
 import { logWatcherEvent } from './logger';
+import { listCopilotStoreSessions } from './copilot-session-store';
+import { inspectVSCodeChatSession } from './vscode-chat-session';
+import { getWindowsProfileRoots } from './windows-profile-roots';
 
 // ---------------------------------------------------------------------------
 // Chokidar dynamic import (falls back to VS Code FileSystemWatcher)
@@ -45,7 +48,7 @@ async function ensureChokidar(): Promise<typeof import('chokidar')> {
 // ---------------------------------------------------------------------------
 
 interface WatcherState {
-    watcher: import('chokidar').FSWatcher | null;
+    watcher: { close(): Promise<void> } | null;
     debounceTimers: Map<string, NodeJS.Timeout>;
     isRunning: boolean;
 }
@@ -77,9 +80,39 @@ function getWatchPaths(): string[] {
             ),
         );
         paths.push(path.join(appData, 'Code', 'User', 'workspaceStorage'));
+        paths.push(
+            path.join(
+                appData,
+                'Code',
+                'User',
+                'globalStorage',
+                'github.copilot-chat',
+            ),
+        );
     }
 
     paths.push(path.join(configDir, 'Code', 'User', 'workspaceStorage'));
+    paths.push(path.join(configDir, 'Code', 'User', 'globalStorage', 'github.copilot-chat'));
+    paths.push(
+        path.join(
+            os.homedir(),
+            '.vscode-server',
+            'data',
+            'User',
+            'globalStorage',
+            'github.copilot-chat',
+        ),
+    );
+    paths.push(
+        path.join(
+            os.homedir(),
+            '.vscode-server-insiders',
+            'data',
+            'User',
+            'globalStorage',
+            'github.copilot-chat',
+        ),
+    );
     paths.push(
         path.join(
             os.homedir(),
@@ -90,8 +123,43 @@ function getWatchPaths(): string[] {
             'workspaceStorage',
         ),
     );
+    paths.push(
+        path.join(
+            os.homedir(),
+            'Library',
+            'Application Support',
+            'Code',
+            'User',
+            'globalStorage',
+            'github.copilot-chat',
+        ),
+    );
 
-    return paths.filter((p) => fs.existsSync(p));
+    for (const profileRoot of getWindowsProfileRoots(getConfig().windowsProfileRoots)) {
+        paths.push(
+            path.join(
+                profileRoot,
+                'AppData',
+                'Roaming',
+                'Code',
+                'User',
+                'workspaceStorage',
+            ),
+        );
+        paths.push(
+            path.join(
+                profileRoot,
+                'AppData',
+                'Roaming',
+                'Code',
+                'User',
+                'globalStorage',
+                'github.copilot-chat',
+            ),
+        );
+    }
+
+    return Array.from(new Set(paths.filter((p) => fs.existsSync(p))));
 }
 
 // ---------------------------------------------------------------------------
@@ -102,7 +170,18 @@ function isSessionFile(filePath: string): boolean {
     const isDeepSeek = filePath.includes('request-dumps') && filePath.endsWith('.json');
     const isCopilotTranscript = filePath.includes('transcripts') && filePath.endsWith('.jsonl');
     const isCopilotDebugLog = filePath.includes('debug-logs') && filePath.endsWith('main.jsonl');
-    return isDeepSeek || isCopilotTranscript || isCopilotDebugLog;
+    const isNativeVSCodeChat =
+        path.basename(path.dirname(filePath)) === 'chatSessions' && filePath.endsWith('.jsonl');
+    const isCopilotStore =
+        filePath.includes('github.copilot-chat') &&
+        (filePath.endsWith('session-store.db') || filePath.endsWith('session-store.db-wal'));
+    return (
+        isDeepSeek ||
+        isCopilotTranscript ||
+        isCopilotDebugLog ||
+        isNativeVSCodeChat ||
+        isCopilotStore
+    );
 }
 
 function determineSourceKind(filePath: string): string {
@@ -114,9 +193,9 @@ function determineSourceKind(filePath: string): string {
 
 function determineSourceName(filePath: string): string {
     if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {
-        return 'deepseek-vscode-auto';
+        return 'deepseek-vscode';
     }
-    return 'copilot-vscode-auto';
+    return 'copilot-vscode';
 }
 
 function extractSessionId(filePath: string): string {
@@ -135,12 +214,100 @@ async function handleFileEvent(filePath: string, event: 'change' | 'create'): Pr
     if (!isSessionFile(filePath)) return;
 
     const config = getConfig();
-    const existing = state.debounceTimers.get(filePath);
+    const eventKey = filePath.endsWith('session-store.db-wal')
+        ? filePath.slice(0, -'-wal'.length)
+        : filePath;
+    const existing = state.debounceTimers.get(eventKey);
     if (existing) clearTimeout(existing);
 
     const timer = setTimeout(async () => {
-        state.debounceTimers.delete(filePath);
+        state.debounceTimers.delete(eventKey);
         try {
+            if (path.basename(eventKey) === 'session-store.db') {
+                const stat = fileStat(eventKey);
+                const sessions = listCopilotStoreSessions(eventKey);
+                logWatcherEvent(event, eventKey, {
+                    sourceKind: 'copilot_chat',
+                    sessions: sessions.length,
+                    sizeBytes: stat.size,
+                });
+                for (const session of sessions) {
+                    if (session.messageCount === 0) continue;
+                    await exportSession(
+                        {
+                            sourceName: 'copilot-vscode',
+                            sourceKind: 'copilot_chat',
+                            filePath: eventKey,
+                            sessionId: session.sessionId,
+                            sizeBytes: stat.size,
+                            mtimeMs: stat.mtimeMs,
+                            sourceRevision: session.revision,
+                        },
+                        resolveOutputDir(config),
+                    );
+                }
+                return;
+            }
+
+            if (path.basename(path.dirname(eventKey)) === 'chatSessions') {
+                const stat = fileStat(eventKey);
+                const summary = inspectVSCodeChatSession(eventKey);
+                if (summary.messageCount === 0) return;
+                const provider = summary.modelProvider?.replace(/[^a-z0-9-]/g, '');
+                const sourceName =
+                    provider && provider !== 'copilot'
+                        ? `${provider}-vscode`
+                        : 'copilot-vscode';
+                if (sourceName === 'copilot-vscode') {
+                    const userDir = path.dirname(
+                        path.dirname(path.dirname(path.dirname(eventKey))),
+                    );
+                    const storePath = path.join(
+                        userDir,
+                        'globalStorage',
+                        'github.copilot-chat',
+                        'session-store.db',
+                    );
+                    if (fs.existsSync(storePath)) {
+                        try {
+                            const inStore = listCopilotStoreSessions(storePath).some(
+                                (session) => session.sessionId === summary.sessionId,
+                            );
+                            if (inStore) {
+                                logWatcherEvent('skip', eventKey, {
+                                    reason: 'logical session is already present in session-store.db',
+                                    sessionId: summary.sessionId,
+                                });
+                                return;
+                            }
+                        } catch {
+                            // Older extension hosts cannot inspect SQLite; preserve
+                            // native-chat fallback rather than dropping the session.
+                        }
+                    }
+                }
+                logWatcherEvent(event, eventKey, {
+                    sourceKind: 'copilot_chat',
+                    sourceName,
+                    sessionId: summary.sessionId,
+                    messages: summary.messageCount,
+                    sizeBytes: stat.size,
+                });
+                await exportSession(
+                    {
+                        sourceName,
+                        sourceKind: 'copilot_chat',
+                        filePath: eventKey,
+                        sessionId: summary.sessionId,
+                        sizeBytes: stat.size,
+                        mtimeMs: stat.mtimeMs,
+                        sourceRevision: summary.revision,
+                    },
+                    resolveOutputDir(config),
+                );
+                return;
+            }
+
             const stat = fileStat(filePath);
             const sourceKind = determineSourceKind(filePath);
             const sourceName = determineSourceName(filePath);
@@ -166,7 +333,7 @@ async function handleFileEvent(filePath: string, event: 'change' | 'create'): Pr
         }
     }, config.watch.debounceMs);
 
-    state.debounceTimers.set(filePath, timer);
+    state.debounceTimers.set(eventKey, timer);
 }
 
 // ---------------------------------------------------------------------------
@@ -197,17 +364,18 @@ export async function startWatcher(): Promise<void> {
 
     if (chokidarLib) {
         // ── Chokidar path (full-featured) ──
-        state.watcher = chokidarLib.watch(watchPaths, {
+        const activeWatcher = chokidarLib.watch(watchPaths, {
             ignored: [/(^|[\\/])\.\./, /node_modules/, /\.git/, '**/models.json'],
             persistent: true,
             ignoreInitial: true,
             awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
             depth: 10,
-        }) as any;
+        });
+        state.watcher = activeWatcher;
 
-        state.watcher!.on('add', (fp: string) => handleFileEvent(fp, 'create'));
-        state.watcher!.on('change', (fp: string) => handleFileEvent(fp, 'change'));
-        state.watcher!.on('error', (error: Error) => {
+        activeWatcher.on('add', (fp: string) => handleFileEvent(fp, 'create'));
+        activeWatcher.on('change', (fp: string) => handleFileEvent(fp, 'change'));
+        activeWatcher.on('error', (error: Error) => {
             logWatcherEvent('error', undefined, { error: error.message });
         });
 
@@ -230,7 +398,7 @@ export async function startWatcher(): Promise<void> {
             close: async () => {
                 for (const d of disposables) d.dispose();
             },
-        } as any;
+        };
 
         vscode.window.showInformationMessage(
             `Agent Session Router: Watching ${watchPaths.length} directories (VS Code fallback). ` +

@@ -16,6 +16,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ExtractedSession, SessionMessage } from '../types';
 import { registerExtractor } from './index';
+import { extractCopilotStoreSession } from '../copilot-session-store';
+import { extractVSCodeChatSession } from '../vscode-chat-session';
 
 // ---------------------------------------------------------------------------
 // Transcript format (primary — transcripts/{uuid}.jsonl)
@@ -67,7 +69,13 @@ interface DebugLogEntry {
 // Extractor
 // ---------------------------------------------------------------------------
 
-function extractCopilotChat(filePath: string): ExtractedSession {
+function extractCopilotChat(filePath: string, discoveredSessionId?: string): ExtractedSession {
+    if (path.basename(filePath) === 'session-store.db') {
+        return extractCopilotStoreSession(filePath, discoveredSessionId ?? '');
+    }
+    if (path.basename(path.dirname(filePath)) === 'chatSessions') {
+        return extractVSCodeChatSession(filePath);
+    }
     const isTranscript = filePath.includes('transcripts') && filePath.endsWith('.jsonl');
     const sessionId = extractSessionId(filePath);
 

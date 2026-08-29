@@ -5,8 +5,8 @@
 [![CI](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml/badge.svg)](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.90%2B-007ACC)](https://code.visualstudio.com/)
-![Tests](https://img.shields.io/badge/tests-107%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-83%20unit%20tests-blue)
+![Tests](https://img.shields.io/badge/tests-116%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-86%20unit%20tests-blue)
 ![Agents](https://img.shields.io/badge/agents-8%20supported-9cf)
 
 Automatically archive your AI coding sessions. Discovers conversations from
@@ -16,7 +16,7 @@ and more — exports them as searchable Markdown files into your
 
 > **🎉 Live on the Marketplace** — v0.1.0 is published and ready for daily use:
 > [marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router).
-> 107 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
+> 116 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
 
 ---
 
@@ -50,7 +50,7 @@ git clone https://github.com/avidullu/agent-session-router.git
 cd agent-session-router
 npm ci
 npm run compile
-npm test                        # verify: 107 tests pass
+npm test                        # verify: 116 tests pass on Node 22+
 npx @vscode/vsce package -o agent-session-router.vsix
 code --install-extension agent-session-router.vsix --force
 ```
@@ -75,7 +75,7 @@ chmod +x scripts/agentic-install.sh
 ```
 
 The script will: verify Node.js ≥ 20, install dependencies, compile, run the
-107-test suite, package the `.vsix`, install into VS Code, and print the
+test suite, package the `.vsix`, install into VS Code, and print the
 recommended settings.
 
 After the script completes, tell the user:
@@ -103,7 +103,7 @@ Markdown files that the Agent Sessions hub can index.
 
 | Agent                             | Source                  | Status                                      |
 | --------------------------------- | ----------------------- | ------------------------------------------- |
-| **GitHub Copilot Chat**           | VS Code extension       | ✅ Full support (transcripts + tool output) |
+| **GitHub Copilot Chat**           | VS Code extension       | ✅ Native chat JSONL + current SQLite + legacy JSONL |
 | **DeepSeek V4**                   | VS Code extension       | ✅ Full support                             |
 | **Continue.dev**                  | VS Code extension       | ✅ Discover + Extract                       |
 | **Cline**                         | VS Code extension       | ✅ Discover + Extract                       |
@@ -111,7 +111,7 @@ Markdown files that the Agent Sessions hub can index.
 | **Aider**                         | VS Code extension       | ✅ Discover + Extract                       |
 | **Gemini Antigravity**            | VS Code extension + IDE | ✅ Discover + Extract                       |
 | **Tabby, Codeium, Amazon Q**      | VS Code extensions      | ✅ Via generic globalStorage                |
-| **Grok, Claude, Gemini (LM API)** | Via Copilot Chat        | ✅ Same storage                             |
+| **Z.AI, Grok, Claude, Gemini (LM API)** | VS Code native chat | ✅ Provider-aware native chat JSONL         |
 | **OpenAI ChatGPT**                | Via Codex CLI           | ✅ Via Codex extractor                      |
 
 > New agents are auto-discovered on the next scan — no configuration needed.
@@ -120,11 +120,11 @@ Markdown files that the Agent Sessions hub can index.
 
 | Metric                      | Value                               |
 | --------------------------- | ----------------------------------- |
-| **Total tests**             | **107** (0 failures)                |
-| Unit tests (coverage suite) | 83                                  |
+| **Total tests**             | **116** on Node 22+ (0 failures)    |
+| Unit tests (coverage suite) | 86                                  |
 | Contract conformance        | 6                                   |
 | Router-index tests          | 6                                   |
-| Router export outcome tests | 6                                   |
+| Router export outcome tests | 10                                  |
 | Smoke tests                 | 6                                   |
 | **CI matrix**               | Windows, macOS, Linux × Node 20, 22 |
 | **Linting**                 | ESLint (TypeScript) — 0 errors      |
@@ -174,6 +174,10 @@ All settings are under the `agentSessionRouter` namespace.
     "agentSessionRouter.watch.enabled": false,
     "agentSessionRouter.watch.debounceMs": 5000,
 
+    // Optional exact Windows profile roots to include from Remote WSL.
+    // Profiles are never enumerated automatically.
+    "agentSessionRouter.windowsProfileRoots": ["C:\\Users\\your-name"],
+
     // Max age of sessions to export
     "agentSessionRouter.maxSessionAge": "90d",
 }
@@ -198,6 +202,43 @@ In the Agent Sessions hub repo, rendered Markdown files are local-only by
 default. The router also writes `.router-index.jsonl`; the hub merges that
 sidecar into tracked metadata (`archive/index.jsonl` and `archive/INDEX.md`) on
 the next `python tools/agent_archive.py export --all`.
+
+### Does it support Copilot's current `session-store.db`?
+
+Yes. Current Copilot Chat keeps sessions in
+`globalStorage/github.copilot-chat/session-store.db`. The router opens the live
+WAL-backed database read-only, exports each logical session independently, and
+uses a per-session content revision so one changed conversation does not create
+false cache hits for its siblings.
+
+When the extension runs in Remote WSL, it can also discover an existing Windows
+VS Code user store. It uses the current `USERPROFILE` when available, plus exact
+profile roots explicitly listed in `agentSessionRouter.windowsProfileRoots`
+(for example, `C:\\Users\\your-name` or `/mnt/c/Users/your-name`). It never
+enumerates every profile under `/mnt/c/Users`, preventing another Windows
+user's conversations from entering your archive.
+
+SQLite-store ingestion needs a VS Code extension host with Node.js 22.5 or
+newer. Current VS Code releases satisfy that requirement. On older extension
+hosts, legacy Copilot transcript/debug JSONL discovery continues to work and the
+Output panel reports why the SQLite store was skipped.
+
+### What is the recommended daily routine?
+
+1. Run **Agent Session Router: Set Output Directory** and select the Agent
+   Sessions repository's `archive` directory.
+2. Run **Agent Session Router: Export All Sessions** once.
+3. Run **Agent Session Router: Auto-Export — Monitor for New Sessions**. The
+   command persists the watcher setting, so it starts again with VS Code.
+4. In the Agent Sessions repository, run `agent-sessions export` followed by
+   `agent-sessions status` whenever you want to refresh and inspect the catalog.
+
+The watcher updates `.router-index.jsonl` as it exports, so watched and manually
+selected sessions enter the same hub-ingestion path as a full export.
+
+The default resolver recognizes common `Projects`, lowercase `projects`, and
+`Siva/infra/agent-sessions` checkouts. Headless or managed setups can set
+`AGENT_SESSIONS_HOME` to the Agent Sessions repository root.
 
 ### Does this extension upload my sessions anywhere?
 

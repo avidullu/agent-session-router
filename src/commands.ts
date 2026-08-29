@@ -17,6 +17,7 @@ import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
 import { startWatcher, stopWatcher } from './watcher';
 import { DiscoveredSession } from './types';
+import { manualSessionCandidates } from './manual-session';
 
 // ── Discovery summary formatter ──────────────────────────────────────
 
@@ -220,37 +221,49 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                 canSelectMany: false,
                 openLabel: 'Export Session',
                 filters: {
-                    'Agent Sessions': ['json', 'jsonl', 'txt'],
+                    'Agent Sessions': ['json', 'jsonl', 'txt', 'db'],
                     'All Files': ['*'],
                 },
             });
 
             if (!files || files.length === 0) return;
 
-            // Try to determine the source kind from the file path
             const filePath = files[0].fsPath;
-            let sourceKind = 'deepseek_request_dump';
-            let sourceName = 'manual-export';
-
-            if (filePath.includes('copilot-chat') || filePath.includes('debug-logs')) {
-                sourceKind = 'copilot_chat';
-                sourceName = 'copilot-vscode-manual';
-            } else if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {
-                sourceKind = 'deepseek_request_dump';
-                sourceName = 'deepseek-vscode-manual';
+            const stat = await vscode.workspace.fs.stat(files[0]);
+            let candidates;
+            try {
+                candidates = manualSessionCandidates(filePath, stat.size, stat.mtime);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                vscode.window.showErrorMessage(`Agent Session Router: ${message}`);
+                return;
+            }
+            if (candidates.length === 0) {
+                vscode.window.showWarningMessage(
+                    'Agent Session Router: The selected source has no importable messages.',
+                );
+                return;
             }
 
-            const stat = await vscode.workspace.fs.stat(files[0]);
+            let candidate = candidates[0];
+            if (candidates.length > 1) {
+                const selected = await vscode.window.showQuickPick(
+                    candidates.map((item) => ({
+                        label: item.session.sessionId,
+                        description:
+                            item.messageCount === undefined
+                                ? undefined
+                                : `${item.messageCount} messages`,
+                        candidate: item,
+                    })),
+                    { placeHolder: 'Select the logical session to export' },
+                );
+                if (!selected) return;
+                candidate = selected.candidate;
+            }
 
             const record = await exportSession(
-                {
-                    sourceName,
-                    sourceKind,
-                    filePath,
-                    sessionId: filePath,
-                    sizeBytes: stat.size,
-                    mtimeMs: stat.mtime,
-                },
+                candidate.session,
                 config.outputDir || '',
             );
 
@@ -479,6 +492,9 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     // Start watcher
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStart', async () => {
+            await vscode.workspace
+                .getConfiguration('agentSessionRouter')
+                .update('watch.enabled', true, vscode.ConfigurationTarget.Global);
             await startWatcher();
         }),
     );
@@ -487,6 +503,9 @@ export function registerCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStop', async () => {
             await stopWatcher();
+            await vscode.workspace
+                .getConfiguration('agentSessionRouter')
+                .update('watch.enabled', false, vscode.ConfigurationTarget.Global);
         }),
     );
 

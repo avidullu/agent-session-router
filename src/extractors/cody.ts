@@ -43,8 +43,14 @@ function extractCody(filePath: string): ExtractedSession {
                     if (typeof item.message?.content === 'string') text = item.message.content;
                     else if (Array.isArray(item.message?.content)) {
                         text = item.message.content
-                            .filter((b: any) => b?.text)
-                            .map((b: any) => b.text)
+                            .filter((block: unknown): block is { text: string } =>
+                                Boolean(
+                                    block &&
+                                    typeof block === 'object' &&
+                                    typeof (block as Record<string, unknown>).text === 'string',
+                                ),
+                            )
+                            .map((block: { text: string }) => block.text)
                             .join('\n');
                     } else text = '';
                 }

@@ -6,18 +6,16 @@
  */
 
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as os from 'os';
 import { registerCommands } from './commands';
 import { getConfig } from './config';
 import { initLogger, getOutputChannel, getDiagnosticsPath } from './logger';
+import { resolveOutputDir } from './router';
 
 export function activate(context: vscode.ExtensionContext): void {
     const config = getConfig();
 
     // Initialize structured logger early
-    const outputDir =
-        config.outputDir || path.join(os.homedir(), 'Projects', 'Agent Sessions', 'archive');
+    const outputDir = resolveOutputDir(config);
     initLogger(outputDir);
 
     const channel = getOutputChannel();

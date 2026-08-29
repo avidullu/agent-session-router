@@ -42,7 +42,7 @@ jobs:
       - name: Format (Prettier)
         run: npm run format:check
 
-  # ── Build + Test (full OS + Node matrix) ───────────────────────────
+  # ── Build + Test (Linux/macOS + Node matrix) ───────────────────────
   build-test:
     name: build-test (node ${{ matrix.node-version }}, ${{ matrix.os }})
     needs: lint-format
@@ -50,16 +50,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Forgejo uses the heavyweight Linux pool plus its native Windows runner;
-        # GitHub keeps the full hosted OS matrix, including macOS.
-        os: ${{ github.server_url == 'https://github.com' && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ci-heavy", "windows-latest"]') }}
+        # Forgejo uses the heavyweight Linux pool. GitHub also covers macOS;
+        # native Windows runs in the action-free job below.
+        os: ${{ github.server_url == 'https://github.com' && fromJSON('["ubuntu-latest", "macos-latest"]') || fromJSON('["ci-heavy"]') }}
         node-version: ["20", "22"]
-        # Exclude combinations that add no coverage:
-        # - Windows-only CRLF golden-fixture risk tested on Node 20
+        # macOS-specific path behavior is covered on Node 20.
         exclude:
           - os: macos-latest
-            node-version: "22"
-          - os: windows-latest
             node-version: "22"
     steps:
       - name: Check out
@@ -70,6 +67,83 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Test (contract conformance + unit + smoke)
+        run: npm test
+
+  # Reusable actions are deliberately absent from this entire job. The Surface
+  # runner's older Git cannot clone action repositories through act_runner
+  # (`git --config-env`), and act_runner prefetches `uses:` steps even when an
+  # individual step condition would skip them.
+  build-test-windows:
+    name: build-test (node ${{ matrix.node-version }}, windows-latest)
+    needs: lint-format
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20", "22"]
+    steps:
+      - name: Check out without reusable actions
+        shell: powershell
+        env:
+          CI_REPOSITORY_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:CI_REPOSITORY_TOKEN) { throw 'github.token is unavailable for the repository checkout.' }
+          $remote = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY.git"
+          $credential = "$env:GITHUB_ACTOR`:$env:CI_REPOSITORY_TOKEN"
+          $basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($credential))
+          git init .
+          if ($LASTEXITCODE -ne 0) { throw 'git init failed.' }
+          $remotes = @(git remote)
+          if ($remotes -contains 'origin') { git remote set-url origin $remote } else { git remote add origin $remote }
+          if ($LASTEXITCODE -ne 0) { throw 'Configuring the origin remote failed.' }
+          git -c "http.extraHeader=Authorization: Basic $basic" fetch --no-tags --depth=1 origin $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw "Fetching commit $env:GITHUB_SHA failed." }
+          Remove-Variable credential, basic
+          git checkout --detach --force FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Checking out FETCH_HEAD failed.' }
+          git clean -ffdx
+          if ($LASTEXITCODE -ne 0) { throw 'Cleaning the CI workspace failed.' }
+
+      - name: Set up pinned Node
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $versions = @{
+            '20' = 'v20.20.2'
+            '22' = 'v22.23.2'
+          }
+          $version = $versions['${{ matrix.node-version }}']
+          if (-not $version) { throw 'No pinned Node release for this matrix entry.' }
+          $archiveName = "node-$version-win-x64.zip"
+          $baseUrl = "https://nodejs.org/dist/$version"
+          $downloadRoot = Join-Path $env:RUNNER_TEMP "agent-session-router-$version"
+          $archivePath = Join-Path $env:RUNNER_TEMP $archiveName
+          $manifestPath = Join-Path $env:RUNNER_TEMP "SHASUMS256-$version.txt"
+          & curl.exe --fail --silent --show-error --location --retry 3 --output $archivePath "$baseUrl/$archiveName"
+          if ($LASTEXITCODE -ne 0) { throw "Downloading $archiveName failed." }
+          & curl.exe --fail --silent --show-error --location --retry 3 --output $manifestPath "$baseUrl/SHASUMS256.txt"
+          if ($LASTEXITCODE -ne 0) { throw "Downloading the checksum manifest for $version failed." }
+          $manifest = Get-Content -Raw $manifestPath
+          $escapedName = [Regex]::Escape($archiveName)
+          $match = [Regex]::Match($manifest, "(?m)^([0-9a-f]{64})\s+$escapedName$")
+          if (-not $match.Success) { throw "No checksum found for $archiveName." }
+          $actual = (Get-FileHash -Algorithm SHA256 $archivePath).Hash.ToLowerInvariant()
+          if ($actual -ne $match.Groups[1].Value) { throw "SHA-256 mismatch for $archiveName." }
+          Expand-Archive -Path $archivePath -DestinationPath $downloadRoot -Force
+          $nodeRoot = Join-Path $downloadRoot "node-$version-win-x64"
+          $nodeRoot | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $env:PATH = "$nodeRoot;$env:PATH"
+          node --version
+          npm --version
 
       - name: Install
         run: npm ci

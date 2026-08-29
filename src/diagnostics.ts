@@ -151,6 +151,9 @@ function redactConfig(config: ReturnType<typeof getConfig>): Record<string, unkn
     if (typeof c.outputDir === 'string') {
         c.outputDir = c.outputDir.replace(os.homedir(), '~');
     }
+    if (Array.isArray(c.windowsProfileRoots)) {
+        c.windowsProfileRoots = c.windowsProfileRoots.map(() => '<redacted-windows-profile>');
+    }
     return c;
 }
 

@@ -838,6 +838,25 @@ test('config: getConfig returns defaults without vscode', () => {
     assertEqual(cfg.watch.enabled, false);
     assertEqual(cfg.watch.debounceMs, 5000);
     assertEqual(cfg.maxSessionAge, '90d');
+    assertEqual(JSON.stringify(cfg.windowsProfileRoots), '[]');
+});
+
+const windowsProfiles = require('../out/windows-profile-roots');
+test('config: Windows profile roots accept only one explicit profile', () => {
+    assertEqual(
+        windowsProfiles.normalizeWindowsProfileRoot('C:\\Users\\alice'),
+        '/mnt/c/Users/alice',
+    );
+    assertEqual(
+        windowsProfiles.normalizeWindowsProfileRoot('/mnt/c/Users/alice'),
+        '/mnt/c/Users/alice',
+    );
+    assertEqual(windowsProfiles.normalizeWindowsProfileRoot('/mnt/c/Users'), undefined);
+    assertEqual(
+        windowsProfiles.normalizeWindowsProfileRoot('/mnt/c/Users/alice/AppData'),
+        undefined,
+    );
+    assertEqual(windowsProfiles.normalizeWindowsProfileRoot('/mnt/c/Users/../bob'), undefined);
 });
 
 test('config: default outputDir is empty string', () => {
@@ -1020,7 +1039,19 @@ function isSessionFile(filePath) {
     const isDeepSeek = filePath.includes('request-dumps') && filePath.endsWith('.json');
     const isCopilotTranscript = filePath.includes('transcripts') && filePath.endsWith('.jsonl');
     const isCopilotDebugLog = filePath.includes('debug-logs') && filePath.endsWith('main.jsonl');
-    return isDeepSeek || isCopilotTranscript || isCopilotDebugLog;
+    const isNativeVSCodeChat =
+        require('path').basename(require('path').dirname(filePath)) === 'chatSessions' &&
+        filePath.endsWith('.jsonl');
+    const isCopilotStore =
+        filePath.includes('github.copilot-chat') &&
+        (filePath.endsWith('session-store.db') || filePath.endsWith('session-store.db-wal'));
+    return (
+        isDeepSeek ||
+        isCopilotTranscript ||
+        isCopilotDebugLog ||
+        isNativeVSCodeChat ||
+        isCopilotStore
+    );
 }
 
 function determineSourceKind(filePath) {
@@ -1032,9 +1063,9 @@ function determineSourceKind(filePath) {
 
 function determineSourceName(filePath) {
     if (filePath.includes('deepseek') || filePath.includes('request-dumps')) {
-        return 'deepseek-vscode-auto';
+        return 'deepseek-vscode';
     }
-    return 'copilot-vscode-auto';
+    return 'copilot-vscode';
 }
 
 function extractSessionId(filePath) {
@@ -1065,6 +1096,17 @@ test('watcher: isSessionFile detects copilot debug log', () => {
     assertEqual(isSessionFile('/ws/debug-logs/uuid/other.jsonl'), false);
 });
 
+test('watcher: isSessionFile detects current Copilot SQLite store changes', () => {
+    assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db'), true);
+    assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db-wal'), true);
+    assertEqual(isSessionFile('/globalStorage/github.copilot-chat/session-store.db-shm'), false);
+});
+
+test('watcher: isSessionFile detects native VS Code chat session logs', () => {
+    assertEqual(isSessionFile('/workspaceStorage/hash/chatSessions/session.jsonl'), true);
+    assertEqual(isSessionFile('/workspaceStorage/hash/chatSessions/session.json'), false);
+});
+
 test('watcher: isSessionFile rejects non-session files', () => {
     assertEqual(isSessionFile('/tmp/random.txt'), false);
     assertEqual(isSessionFile('/tmp/models.json'), false);
@@ -1092,8 +1134,8 @@ test('watcher: determineSourceKind copilot default', () => {
 
 // ── determineSourceName ──
 test('watcher: determineSourceName', () => {
-    assertEqual(determineSourceName('/deepseek/request-dumps/x.json'), 'deepseek-vscode-auto');
-    assertEqual(determineSourceName('/copilot/transcripts/x.jsonl'), 'copilot-vscode-auto');
+    assertEqual(determineSourceName('/deepseek/request-dumps/x.json'), 'deepseek-vscode');
+    assertEqual(determineSourceName('/copilot/transcripts/x.jsonl'), 'copilot-vscode');
 });
 
 // ── extractSessionId ──
