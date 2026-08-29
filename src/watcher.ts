@@ -16,6 +16,7 @@ import { fileStat } from './utils';
 import { logWatcherEvent } from './logger';
 import { listCopilotStoreSessions } from './copilot-session-store';
 import { inspectVSCodeChatSession } from './vscode-chat-session';
+import { getWindowsProfileRoots } from './windows-profile-roots';
 
 // ---------------------------------------------------------------------------
 // Chokidar dynamic import (falls back to VS Code FileSystemWatcher)
@@ -134,38 +135,28 @@ function getWatchPaths(): string[] {
         ),
     );
 
-    const windowsUsersRoot = '/mnt/c/Users';
-    if (os.release().toLowerCase().includes('microsoft') && fs.existsSync(windowsUsersRoot)) {
-        try {
-            for (const entry of fs.readdirSync(windowsUsersRoot, { withFileTypes: true })) {
-                if (!entry.isDirectory()) continue;
-                paths.push(
-                    path.join(
-                        windowsUsersRoot,
-                        entry.name,
-                        'AppData',
-                        'Roaming',
-                        'Code',
-                        'User',
-                        'workspaceStorage',
-                    ),
-                );
-                paths.push(
-                    path.join(
-                        windowsUsersRoot,
-                        entry.name,
-                        'AppData',
-                        'Roaming',
-                        'Code',
-                        'User',
-                        'globalStorage',
-                        'github.copilot-chat',
-                    ),
-                );
-            }
-        } catch {
-            // Mounted Windows profiles are optional.
-        }
+    for (const profileRoot of getWindowsProfileRoots(getConfig().windowsProfileRoots)) {
+        paths.push(
+            path.join(
+                profileRoot,
+                'AppData',
+                'Roaming',
+                'Code',
+                'User',
+                'workspaceStorage',
+            ),
+        );
+        paths.push(
+            path.join(
+                profileRoot,
+                'AppData',
+                'Roaming',
+                'Code',
+                'User',
+                'globalStorage',
+                'github.copilot-chat',
+            ),
+        );
     }
 
     return Array.from(new Set(paths.filter((p) => fs.existsSync(p))));
@@ -267,6 +258,34 @@ async function handleFileEvent(filePath: string, event: 'change' | 'create'): Pr
                     provider && provider !== 'copilot'
                         ? `${provider}-vscode`
                         : 'copilot-vscode';
+                if (sourceName === 'copilot-vscode') {
+                    const userDir = path.dirname(
+                        path.dirname(path.dirname(path.dirname(eventKey))),
+                    );
+                    const storePath = path.join(
+                        userDir,
+                        'globalStorage',
+                        'github.copilot-chat',
+                        'session-store.db',
+                    );
+                    if (fs.existsSync(storePath)) {
+                        try {
+                            const inStore = listCopilotStoreSessions(storePath).some(
+                                (session) => session.sessionId === summary.sessionId,
+                            );
+                            if (inStore) {
+                                logWatcherEvent('skip', eventKey, {
+                                    reason: 'logical session is already present in session-store.db',
+                                    sessionId: summary.sessionId,
+                                });
+                                return;
+                            }
+                        } catch {
+                            // Older extension hosts cannot inspect SQLite; preserve
+                            // native-chat fallback rather than dropping the session.
+                        }
+                    }
+                }
                 logWatcherEvent(event, eventKey, {
                     sourceKind: 'copilot_chat',
                     sourceName,

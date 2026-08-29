@@ -27,6 +27,8 @@ export interface Config {
     sources: Record<string, SourceConfig>;
     watch: WatchConfig;
     maxSessionAge: string;
+    /** Explicit Windows user profiles a Remote-WSL host may inspect. */
+    windowsProfileRoots: string[];
 }
 
 /** Default config used when running outside VS Code (tests, CLI). */
@@ -45,6 +47,7 @@ const DEFAULT_CONFIG: Config = {
         debounceMs: 5000,
     },
     maxSessionAge: '90d',
+    windowsProfileRoots: [],
 };
 
 export function getConfig(): Config {
@@ -96,5 +99,6 @@ export function getConfig(): Config {
             debounceMs: cfg.get('watch.debounceMs', 5000),
         },
         maxSessionAge: cfg.get('maxSessionAge', '90d'),
+        windowsProfileRoots: cfg.get<string[]>('windowsProfileRoots', []),
     };
 }

@@ -5,8 +5,8 @@
 [![CI](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml/badge.svg)](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.90%2B-007ACC)](https://code.visualstudio.com/)
-![Tests](https://img.shields.io/badge/tests-113%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-84%20unit%20tests-blue)
+![Tests](https://img.shields.io/badge/tests-116%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-86%20unit%20tests-blue)
 ![Agents](https://img.shields.io/badge/agents-8%20supported-9cf)
 
 Automatically archive your AI coding sessions. Discovers conversations from
@@ -16,7 +16,7 @@ and more — exports them as searchable Markdown files into your
 
 > **🎉 Live on the Marketplace** — v0.1.0 is published and ready for daily use:
 > [marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router).
-> 113 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
+> 116 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
 
 ---
 
@@ -50,7 +50,7 @@ git clone https://github.com/avidullu/agent-session-router.git
 cd agent-session-router
 npm ci
 npm run compile
-npm test                        # verify: 113 tests pass on Node 22+
+npm test                        # verify: 116 tests pass on Node 22+
 npx @vscode/vsce package -o agent-session-router.vsix
 code --install-extension agent-session-router.vsix --force
 ```
@@ -120,11 +120,11 @@ Markdown files that the Agent Sessions hub can index.
 
 | Metric                      | Value                               |
 | --------------------------- | ----------------------------------- |
-| **Total tests**             | **113** on Node 22+ (0 failures)    |
-| Unit tests (coverage suite) | 84                                  |
+| **Total tests**             | **116** on Node 22+ (0 failures)    |
+| Unit tests (coverage suite) | 86                                  |
 | Contract conformance        | 6                                   |
 | Router-index tests          | 6                                   |
-| Router export outcome tests | 6                                   |
+| Router export outcome tests | 10                                  |
 | Smoke tests                 | 6                                   |
 | **CI matrix**               | Windows, macOS, Linux × Node 20, 22 |
 | **Linting**                 | ESLint (TypeScript) — 0 errors      |
@@ -174,6 +174,10 @@ All settings are under the `agentSessionRouter` namespace.
     "agentSessionRouter.watch.enabled": false,
     "agentSessionRouter.watch.debounceMs": 5000,
 
+    // Optional exact Windows profile roots to include from Remote WSL.
+    // Profiles are never enumerated automatically.
+    "agentSessionRouter.windowsProfileRoots": ["C:\\Users\\your-name"],
+
     // Max age of sessions to export
     "agentSessionRouter.maxSessionAge": "90d",
 }
@@ -207,9 +211,12 @@ WAL-backed database read-only, exports each logical session independently, and
 uses a per-session content revision so one changed conversation does not create
 false cache hits for its siblings.
 
-When the extension runs in Remote WSL, it also discovers existing Windows VS
-Code user stores under `/mnt/c/Users`, allowing one WSL extension host to keep
-both Windows and WSL Copilot sessions in the same local archive.
+When the extension runs in Remote WSL, it can also discover an existing Windows
+VS Code user store. It uses the current `USERPROFILE` when available, plus exact
+profile roots explicitly listed in `agentSessionRouter.windowsProfileRoots`
+(for example, `C:\\Users\\your-name` or `/mnt/c/Users/your-name`). It never
+enumerates every profile under `/mnt/c/Users`, preventing another Windows
+user's conversations from entering your archive.
 
 SQLite-store ingestion needs a VS Code extension host with Node.js 22.5 or
 newer. Current VS Code releases satisfy that requirement. On older extension

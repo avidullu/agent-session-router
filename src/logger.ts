@@ -348,7 +348,7 @@ export function logExportSummary(
 }
 
 export function logWatcherEvent(
-    event: 'start' | 'stop' | 'change' | 'create' | 'error',
+    event: 'start' | 'stop' | 'change' | 'create' | 'skip' | 'error',
     filePath?: string,
     extra?: Record<string, unknown>,
 ): void {

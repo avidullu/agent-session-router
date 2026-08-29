@@ -121,6 +121,14 @@
                     "default": 5000,
                     "description": "Debounce delay in milliseconds before exporting a newly detected session."
                 },
+                "agentSessionRouter.windowsProfileRoots": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Windows profile roots a Remote-WSL extension host may inspect, for example /mnt/c/Users/your-name. The router never enumerates every profile under /mnt/c/Users."
+                },
                 "agentSessionRouter.maxSessionAge": {
                     "type": "string",
                     "default": "90d",

@@ -9,6 +9,8 @@ const {
     extractVSCodeChatSession,
     inspectVSCodeChatSession,
 } = require('../out/vscode-chat-session');
+const { manualSessionCandidates } = require('../out/manual-session');
+const { collectNativeChatSessions } = require('../out/discoverers/copilot-chat');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscode-chat-session-'));
 const chatDir = path.join(tmpDir, 'workspace-id', 'chatSessions');
@@ -56,6 +58,33 @@ try {
     assert.strictEqual(summary.messageCount, 2);
     assert.strictEqual(summary.modelProvider, 'zai');
     assert.match(summary.revision, /^[0-9a-f]{64}$/);
+    const manualCandidates = manualSessionCandidates(filePath, fs.statSync(filePath).size, 1234);
+    assert.strictEqual(manualCandidates.length, 1);
+    assert.strictEqual(manualCandidates[0].session.sessionId, 'zai-session');
+    assert.strictEqual(manualCandidates[0].session.sourceName, 'zai-vscode');
+    assert.strictEqual(manualCandidates[0].session.sourceRevision, summary.revision);
+
+    const copilotInitial = JSON.parse(JSON.stringify(initial));
+    copilotInitial.v.sessionId = 'copilot-session';
+    copilotInitial.v.inputState.selectedModel.identifier = 'copilot/gpt-5';
+    copilotInitial.v.inputState.selectedModel.metadata.vendor = 'copilot';
+    const copilotRequest = { ...request, requestId: 'copilot-request', modelId: 'copilot/gpt-5' };
+    const copilotPath = path.join(chatDir, 'copilot-session.jsonl');
+    fs.writeFileSync(
+        copilotPath,
+        [copilotInitial, { kind: 2, k: ['requests'], v: [copilotRequest] }]
+            .map((entry) => JSON.stringify(entry))
+            .join('\n') + '\n',
+    );
+    const deduplicated = collectNativeChatSessions(
+        [tmpDir],
+        new Set(['copilot-session']),
+    );
+    assert.deepStrictEqual(
+        deduplicated.map((session) => [session.sessionId, session.sourceName]),
+        [['zai-session', 'zai-vscode']],
+        'native Copilot JSONL must not duplicate a session already present in SQLite',
+    );
 
     const extracted = extractVSCodeChatSession(filePath);
     assert.strictEqual(extracted.metadata.source_format, 'vscode_chat_session_log');

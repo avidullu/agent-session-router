@@ -16,6 +16,7 @@ type SqliteRow = Record<string, SqliteValue>;
 interface SqliteStatement {
     all(...params: SqliteValue[]): SqliteRow[];
     get(...params: SqliteValue[]): SqliteRow | undefined;
+    iterate(...params: SqliteValue[]): IterableIterator<SqliteRow>;
 }
 
 interface SqliteDatabase {
@@ -186,8 +187,50 @@ function readTurnRows(db: SqliteDatabase, sessionId: string): TurnRow[] {
 }
 
 function sessionDigest(session: SessionRow, turns: TurnRow[]): string {
-    const canonical = JSON.stringify({ session, turns });
-    return crypto.createHash('sha256').update(canonical).digest('hex');
+    const hash = startSessionDigest(session);
+    for (const turn of turns) updateTurnDigest(hash, turn);
+    return hash.digest('hex');
+}
+
+function updateDigestValue(hash: crypto.Hash, value: unknown): void {
+    const encoded = JSON.stringify(value);
+    hash.update(String(Buffer.byteLength(encoded)), 'utf8');
+    hash.update(':', 'utf8');
+    hash.update(encoded, 'utf8');
+}
+
+function startSessionDigest(session: SessionRow): crypto.Hash {
+    const hash = crypto.createHash('sha256');
+    for (const value of [
+        session.id,
+        session.cwd,
+        session.repository,
+        session.host_type,
+        session.branch,
+        session.summary,
+        session.agent_name,
+        session.agent_description,
+        session.created_at,
+        session.updated_at,
+    ]) {
+        updateDigestValue(hash, value);
+    }
+    return hash;
+}
+
+function updateTurnDigest(hash: crypto.Hash, turn: TurnRow): void {
+    for (const value of [
+        turn.turn_index,
+        turn.user_message,
+        turn.assistant_response,
+        turn.timestamp,
+    ]) {
+        updateDigestValue(hash, value);
+    }
+}
+
+function messageCountForTurn(turn: TurnRow): number {
+    return Number(Boolean(turn.user_message?.trim())) + Number(Boolean(turn.assistant_response?.trim()));
 }
 
 function appendMetadata(
@@ -247,20 +290,64 @@ function readSession(db: SqliteDatabase, sessionId: string): ExtractedSession {
 export function listCopilotStoreSessions(filePath: string): CopilotStoreSessionSummary[] {
     return withReadOnlyDatabase(filePath, (db) => {
         validateSchema(db);
-        const sessionIds = db
-            .prepare('SELECT id FROM sessions ORDER BY created_at ASC, id ASC')
-            .all()
-            .map((row) => text(row.id))
-            .filter((sessionId): sessionId is string => Boolean(sessionId));
+        const rows = db
+            .prepare(
+                `SELECT s.id, s.cwd, s.repository, s.host_type, s.branch, s.summary,
+                        s.agent_name, s.agent_description, s.created_at, s.updated_at,
+                        t.id AS turn_id, t.turn_index, t.user_message,
+                        t.assistant_response, t.timestamp
+                 FROM sessions AS s
+                 LEFT JOIN turns AS t ON t.session_id = s.id
+                 ORDER BY s.created_at ASC, s.id ASC, t.turn_index ASC, t.id ASC`,
+            )
+            .iterate();
 
-        return sessionIds.map((sessionId) => {
-            const extracted = readSession(db, sessionId);
-            return {
-                sessionId,
-                revision: extracted.sourceDigest ?? '',
-                messageCount: extracted.messages.length,
+        const summaries: CopilotStoreSessionSummary[] = [];
+        let currentId: string | undefined;
+        let currentHash: crypto.Hash | undefined;
+        let currentMessageCount = 0;
+
+        const flush = (): void => {
+            if (!currentId || !currentHash) return;
+            summaries.push({
+                sessionId: currentId,
+                revision: currentHash.digest('hex'),
+                messageCount: currentMessageCount,
+            });
+        };
+
+        for (const row of rows) {
+            const sessionId = text(row.id);
+            if (!sessionId) continue;
+            if (sessionId !== currentId) {
+                flush();
+                currentId = sessionId;
+                currentMessageCount = 0;
+                currentHash = startSessionDigest({
+                    id: sessionId,
+                    cwd: text(row.cwd),
+                    repository: text(row.repository),
+                    host_type: text(row.host_type),
+                    branch: text(row.branch),
+                    summary: text(row.summary),
+                    agent_name: text(row.agent_name),
+                    agent_description: text(row.agent_description),
+                    created_at: text(row.created_at),
+                    updated_at: text(row.updated_at),
+                });
+            }
+            if (row.turn_id === null || row.turn_id === undefined || !currentHash) continue;
+            const turn: TurnRow = {
+                turn_index: number(row.turn_index),
+                user_message: text(row.user_message),
+                assistant_response: text(row.assistant_response),
+                timestamp: text(row.timestamp),
             };
-        });
+            updateTurnDigest(currentHash, turn);
+            currentMessageCount += messageCountForTurn(turn);
+        }
+        flush();
+        return summaries;
     });
 }
 

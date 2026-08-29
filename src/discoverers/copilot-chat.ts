@@ -13,6 +13,8 @@ import { DiscoveredSession } from '../types';
 import { registerDiscoverer } from './index';
 import { listCopilotStoreSessions } from '../copilot-session-store';
 import { inspectVSCodeChatSession } from '../vscode-chat-session';
+import { getConfig } from '../config';
+import { getWindowsProfileRoots } from '../windows-profile-roots';
 
 const COPILOT_EXTENSION_ID = 'github.copilot-chat';
 
@@ -38,26 +40,10 @@ function getWorkspaceStorageRoots(): string[] {
         ),
     );
 
-    const windowsUsersRoot = '/mnt/c/Users';
-    if (os.release().toLowerCase().includes('microsoft') && fs.existsSync(windowsUsersRoot)) {
-        try {
-            for (const entry of fs.readdirSync(windowsUsersRoot, { withFileTypes: true })) {
-                if (!entry.isDirectory()) continue;
-                roots.push(
-                    path.join(
-                        windowsUsersRoot,
-                        entry.name,
-                        'AppData',
-                        'Roaming',
-                        'Code',
-                        'User',
-                        'workspaceStorage',
-                    ),
-                );
-            }
-        } catch {
-            // Mounted Windows profiles are optional; native WSL roots still work.
-        }
+    for (const profileRoot of getWindowsProfileRoots(getConfig().windowsProfileRoots)) {
+        roots.push(
+            path.join(profileRoot, 'AppData', 'Roaming', 'Code', 'User', 'workspaceStorage'),
+        );
     }
 
     return Array.from(new Set(roots));
@@ -76,35 +62,19 @@ function getGlobalStorageRoots(): string[] {
         path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'globalStorage'),
     );
 
-    // A Remote-WSL extension host can see both its Linux store and the Windows
-    // VS Code store. Include existing Windows profiles so one router instance
-    // can keep both sides of a Surface-style setup current.
-    const windowsUsersRoot = '/mnt/c/Users';
-    if (os.release().toLowerCase().includes('microsoft') && fs.existsSync(windowsUsersRoot)) {
-        try {
-            for (const entry of fs.readdirSync(windowsUsersRoot, { withFileTypes: true })) {
-                if (!entry.isDirectory()) continue;
-                roots.push(
-                    path.join(
-                        windowsUsersRoot,
-                        entry.name,
-                        'AppData',
-                        'Roaming',
-                        'Code',
-                        'User',
-                        'globalStorage',
-                    ),
-                );
-            }
-        } catch {
-            // Mounted Windows profiles are optional; native WSL roots still work.
-        }
+    // A Remote-WSL extension host may include the current or explicitly
+    // allowlisted Windows profiles; it never enumerates every local account.
+    for (const profileRoot of getWindowsProfileRoots(getConfig().windowsProfileRoots)) {
+        roots.push(path.join(profileRoot, 'AppData', 'Roaming', 'Code', 'User', 'globalStorage'));
     }
 
     return Array.from(new Set(roots));
 }
 
-function collectNativeChatSessions(workspaceRoots: string[]): DiscoveredSession[] {
+export function collectNativeChatSessions(
+    workspaceRoots: string[],
+    excludedSessionIds: ReadonlySet<string>,
+): DiscoveredSession[] {
     const newestBySession = new Map<string, DiscoveredSession>();
     for (const wsRoot of workspaceRoots) {
         if (!fs.existsSync(wsRoot)) continue;
@@ -127,9 +97,15 @@ function collectNativeChatSessions(workspaceRoots: string[]): DiscoveredSession[
                     continue;
                 }
                 if (summary.messageCount === 0) continue;
+                const provider = summary.modelProvider?.replace(/[^a-z0-9-]/g, '');
+                if (
+                    (!provider || provider === 'copilot') &&
+                    excludedSessionIds.has(summary.sessionId)
+                ) {
+                    continue;
+                }
 
                 const stat = fs.statSync(filePath);
-                const provider = summary.modelProvider?.replace(/[^a-z0-9-]/g, '');
                 const candidate: DiscoveredSession = {
                     sourceName:
                         provider && provider !== 'copilot'
@@ -187,7 +163,7 @@ async function* discoverCopilotChatSessions(): AsyncIterable<DiscoveredSession> 
     }
 
     const workspaceRoots = getWorkspaceStorageRoots();
-    for (const session of collectNativeChatSessions(workspaceRoots)) {
+    for (const session of collectNativeChatSessions(workspaceRoots, sqliteSessionIds)) {
         yield session;
     }
 

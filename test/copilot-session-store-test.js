@@ -18,6 +18,7 @@ const {
     extractCopilotStoreSession,
     listCopilotStoreSessions,
 } = require('../out/copilot-session-store');
+const { manualSessionCandidates } = require('../out/manual-session');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-session-store-'));
 const dbPath = path.join(tmpDir, 'session-store.db');
@@ -99,6 +100,11 @@ try {
     assert.strictEqual(summaries[0].messageCount, 4);
     assert.match(summaries[0].revision, /^[0-9a-f]{64}$/);
     assert.strictEqual(summaries[1].messageCount, 0);
+    const manualCandidates = manualSessionCandidates(dbPath, fs.statSync(dbPath).size, 1234);
+    assert.strictEqual(manualCandidates.length, 1);
+    assert.strictEqual(manualCandidates[0].session.sessionId, 'session-a');
+    assert.strictEqual(manualCandidates[0].session.sourceRevision, summaries[0].revision);
+    assert.strictEqual(manualCandidates[0].session.sourceName, 'copilot-vscode');
 
     const extracted = extractCopilotStoreSession(dbPath, 'session-a');
     assert.strictEqual(extracted.metadata.session_id, 'session-a');
@@ -126,6 +132,21 @@ try {
     extractCopilotStoreSession(dbPath, 'session-a');
     const afterHash = crypto.createHash('sha256').update(fs.readFileSync(dbPath)).digest('hex');
     assert.strictEqual(afterHash, beforeHash, 'read-only extraction must not mutate the store');
+
+    const updateDb = new DatabaseSync(dbPath);
+    updateDb
+        .prepare('UPDATE turns SET assistant_response = ? WHERE session_id = ? AND turn_index = ?')
+        .run('other response', 'session-a', 0);
+    updateDb.close();
+    const changedSummaries = listCopilotStoreSessions(dbPath);
+    assert.notStrictEqual(
+        changedSummaries[0].revision,
+        summaries[0].revision,
+        'a same-length turn edit must invalidate the logical session revision',
+    );
+    const changedExtracted = extractCopilotStoreSession(dbPath, 'session-a');
+    assert.strictEqual(changedExtracted.sourceDigest, changedSummaries[0].revision);
+    assert.strictEqual(changedExtracted.messages[1].text, 'other response');
 
     assert.throws(
         () => extractCopilotStoreSession(dbPath, 'missing-session'),

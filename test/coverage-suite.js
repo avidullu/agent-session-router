@@ -838,6 +838,25 @@ test('config: getConfig returns defaults without vscode', () => {
     assertEqual(cfg.watch.enabled, false);
     assertEqual(cfg.watch.debounceMs, 5000);
     assertEqual(cfg.maxSessionAge, '90d');
+    assertEqual(JSON.stringify(cfg.windowsProfileRoots), '[]');
+});
+
+const windowsProfiles = require('../out/windows-profile-roots');
+test('config: Windows profile roots accept only one explicit profile', () => {
+    assertEqual(
+        windowsProfiles.normalizeWindowsProfileRoot('C:\\Users\\alice'),
+        '/mnt/c/Users/alice',
+    );
+    assertEqual(
+        windowsProfiles.normalizeWindowsProfileRoot('/mnt/c/Users/alice'),
+        '/mnt/c/Users/alice',
+    );
+    assertEqual(windowsProfiles.normalizeWindowsProfileRoot('/mnt/c/Users'), undefined);
+    assertEqual(
+        windowsProfiles.normalizeWindowsProfileRoot('/mnt/c/Users/alice/AppData'),
+        undefined,
+    );
+    assertEqual(windowsProfiles.normalizeWindowsProfileRoot('/mnt/c/Users/../bob'), undefined);
 });
 
 test('config: default outputDir is empty string', () => {
