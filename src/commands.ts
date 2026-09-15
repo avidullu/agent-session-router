@@ -15,7 +15,8 @@ import {
 import { getConfig } from './config';
 import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
-import { startWatcher, stopWatcher } from './watcher';
+import { syncWatcher } from './watcher';
+import { normalizeOutputPath } from './output-path';
 import { DiscoveredSession } from './types';
 import { manualSessionCandidates } from './manual-session';
 
@@ -90,10 +91,15 @@ function validateOutputDir(dirPath: string): string | undefined {
         return 'Path cannot be empty.';
     }
 
-    const resolved = path.resolve(dirPath.trim());
+    let resolved: string;
+    try {
+        resolved = normalizeOutputPath(dirPath);
+    } catch (err) {
+        return err instanceof Error ? err.message : String(err);
+    }
 
     // Normalize away trailing separators so stat calls work reliably
-    const normalized = resolved.replace(/[\\/]+$/, '');
+    const normalized = resolved.replace(/[\\/]+$/, '') || path.parse(resolved).root;
 
     let stat: fs.Stats;
     try {
@@ -262,10 +268,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                 candidate = selected.candidate;
             }
 
-            const record = await exportSession(
-                candidate.session,
-                config.outputDir || '',
-            );
+            const record = await exportSession(candidate.session, config.outputDir || '');
 
             if (record) {
                 vscode.window.showInformationMessage(
@@ -378,7 +381,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
                     },
                 });
                 if (!input) return;
-                newDir = input.trim();
+                newDir = normalizeOutputPath(input);
             } else if (choice.action === 'reset') {
                 newDir = '';
             }
@@ -495,17 +498,17 @@ export function registerCommands(context: vscode.ExtensionContext): void {
             await vscode.workspace
                 .getConfiguration('agentSessionRouter')
                 .update('watch.enabled', true, vscode.ConfigurationTarget.Global);
-            await startWatcher();
+            await syncWatcher();
         }),
     );
 
     // Stop watcher
     context.subscriptions.push(
         vscode.commands.registerCommand('agentSessionRouter.watchStop', async () => {
-            await stopWatcher();
             await vscode.workspace
                 .getConfiguration('agentSessionRouter')
                 .update('watch.enabled', false, vscode.ConfigurationTarget.Global);
+            await syncWatcher();
         }),
     );
 

@@ -5,7 +5,7 @@
 [![CI](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml/badge.svg)](https://github.com/avidullu/agent-session-router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-1.90%2B-007ACC)](https://code.visualstudio.com/)
-![Tests](https://img.shields.io/badge/tests-116%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-86%20unit%20tests-blue)
 ![Agents](https://img.shields.io/badge/agents-8%20supported-9cf)
 
@@ -14,9 +14,19 @@ Automatically archive your AI coding sessions. Discovers conversations from
 and more — exports them as searchable Markdown files into your
 [Agent Sessions](https://github.com/avidullu/agent-sessions) archive.
 
-> **🎉 Live on the Marketplace** — v0.2.0 is published and ready for daily use:
+> **Available on the Marketplace**:
 > [marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router).
-> 116 tests, 8 agent sources, cross-platform CI (Windows/macOS/Linux).
+> Native Z.ai chat support, 8+ agent sources, cross-platform CI (Windows/macOS/Linux).
+
+### New in 0.2.1: reliable automatic collection
+
+Archive paths are now machine-specific, so Settings Sync cannot copy a Windows path
+onto Linux or macOS. Existing invalid paths show a warning with a **Set Output Directory**
+action. Choose a local archive folder or reset to auto-detect.
+
+Changing **Auto-Export** takes effect immediately, including after repairing the path.
+Startup reports whether collection is enabled without opening the Output panel.
+Automatic archiving remains opt-in; existing history can be collected with **Export All Sessions**.
 
 ---
 
@@ -39,7 +49,7 @@ Then run **Agent Session Router: Export All Sessions** from the Command Palette
 1. Download the latest `.vsix` from [Releases](https://github.com/avidullu/agent-session-router/releases)
 2. Install:
    ```bash
-   code --install-extension agent-session-router-0.2.0.vsix --force
+   code --install-extension agent-session-router-0.2.1.vsix --force
    ```
 3. **Reload VS Code** (`Ctrl+Shift+P` → "Developer: Reload Window")
 
@@ -50,7 +60,7 @@ git clone https://github.com/avidullu/agent-session-router.git
 cd agent-session-router
 npm ci
 npm run compile
-npm test                        # verify: 116 tests pass on Node 22+
+npm test                        # includes live collection and path recovery regressions
 npx @vscode/vsce package -o agent-session-router.vsix
 code --install-extension agent-session-router.vsix --force
 ```
@@ -120,12 +130,13 @@ Markdown files that the Agent Sessions hub can index.
 
 | Metric                      | Value                               |
 | --------------------------- | ----------------------------------- |
-| **Total tests**             | **116** on Node 22+ (0 failures)    |
+| **Test suite**              | Unit, contract, storage, and collection regressions on Node 22+ |
 | Unit tests (coverage suite) | 86                                  |
 | Contract conformance        | 6                                   |
 | Router-index tests          | 6                                   |
 | Router export outcome tests | 10                                  |
 | Smoke tests                 | 6                                   |
+| Collection regressions      | Path portability, live settings, Z.ai export, recovery, shutdown |
 | **CI matrix**               | Windows, macOS, Linux × Node 20, 22 |
 | **Linting**                 | ESLint (TypeScript) — 0 errors      |
 | **Formatting**              | Prettier — enforced in CI           |
@@ -229,7 +240,7 @@ Output panel reports why the SQLite store was skipped.
    Sessions repository's `archive` directory.
 2. Run **Agent Session Router: Export All Sessions** once.
 3. Run **Agent Session Router: Auto-Export — Monitor for New Sessions**. The
-   command persists the watcher setting, so it starts again with VS Code.
+   command starts collection immediately and persists the setting for future VS Code sessions.
 4. In the Agent Sessions repository, run `agent-sessions export` followed by
    `agent-sessions status` whenever you want to refresh and inspect the catalog.
 
@@ -254,8 +265,11 @@ See the [Adding Custom Agents](#adding-custom-agents) section below. No core edi
 
 1. Check the Output panel (`View` → `Output` → "Agent Session Router") for `[watcher]` events
 2. Ensure `agentSessionRouter.watch.enabled` is `true`
-3. The watcher only exports sessions that are **modified after** it starts
-4. Run **Export Diagnostic Bundle** to collect logs for debugging
+3. Check that the output directory is an absolute path on this machine; use
+   **Set Output Directory** to repair a path copied from another OS. `~/` is supported.
+4. The watcher only exports sessions that are **modified after** it starts; use
+   **Export All Sessions** for existing conversations, including Z.ai native chat history.
+5. Run **Export Diagnostic Bundle** to collect logs for debugging
 
 ### Can I use this without the Agent Sessions repo?
 

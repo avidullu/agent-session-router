@@ -18,6 +18,7 @@ import { sha256File, isoNow, canReuseRecord, tailSha256File } from './utils';
 import { archiveStem, isoSecondsUtc, repoRelativeMarkdown } from './contract';
 import { writeRouterIndex } from './router-index';
 import { getConfig, Config } from './config';
+import { normalizeOutputPath } from './output-path';
 import {
     logDiscover,
     logExtractStart,
@@ -73,14 +74,14 @@ export function resetExportCache(): void {
 
 export function resolveOutputDir(config: Config): string {
     if (config.outputDir) {
-        return config.outputDir;
+        return normalizeOutputPath(config.outputDir);
     }
     const explicitHub = process.env.AGENT_SESSIONS_HOME;
     if (explicitHub) {
-        return path.join(explicitHub, 'archive');
+        return path.join(normalizeOutputPath(explicitHub), 'archive');
     }
     // Default: try to find Agent Sessions repo relative to common locations
-    const homeDir = process.env.USERPROFILE || os.homedir();
+    const homeDir = os.homedir();
     const candidates = [
         path.join(homeDir, 'Projects', 'Agent Sessions', 'archive'),
         path.join(homeDir, 'Projects', 'agent-sessions', 'archive'),
@@ -155,11 +156,7 @@ export async function exportSessionWithOutcome(
     // Check cache for unchanged files
     const cacheKey = exportCacheKey(session);
     const cached = exportCache.get(cacheKey) ?? null;
-    if (
-        cached &&
-        session.sourceRevision &&
-        cached.sourceRevision === session.sourceRevision
-    ) {
+    if (cached && session.sourceRevision && cached.sourceRevision === session.sourceRevision) {
         logSkip(
             session.sourceKind,
             session.filePath,

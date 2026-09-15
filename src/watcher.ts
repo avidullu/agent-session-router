@@ -59,6 +59,31 @@ const state: WatcherState = {
     isRunning: false,
 };
 
+let syncQueue: Promise<void> = Promise.resolve();
+let activeConfig: string | undefined;
+
+/** Serialize commands and settings events so they cannot start duplicate watchers. */
+export function syncWatcher(): Promise<void> {
+    syncQueue = syncQueue.then(async () => {
+        try {
+            const config = getConfig();
+            const signature = JSON.stringify(config);
+            if (state.isRunning && activeConfig === signature) return;
+            if (state.isRunning) await stopWatcher();
+            activeConfig = undefined;
+            if (!config.enabled || !config.watch.enabled) return;
+            resolveOutputDir(config);
+            await startWatcher();
+            if (state.isRunning) activeConfig = signature;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            logWatcherEvent('error', undefined, { error: message });
+            void vscode.window.showWarningMessage(`Agent Session Router: ${message}`);
+        }
+    });
+    return syncQueue;
+}
+
 // ---------------------------------------------------------------------------
 // Path resolution
 // ---------------------------------------------------------------------------
@@ -80,15 +105,7 @@ function getWatchPaths(): string[] {
             ),
         );
         paths.push(path.join(appData, 'Code', 'User', 'workspaceStorage'));
-        paths.push(
-            path.join(
-                appData,
-                'Code',
-                'User',
-                'globalStorage',
-                'github.copilot-chat',
-            ),
-        );
+        paths.push(path.join(appData, 'Code', 'User', 'globalStorage', 'github.copilot-chat'));
     }
 
     paths.push(path.join(configDir, 'Code', 'User', 'workspaceStorage'));
@@ -137,14 +154,7 @@ function getWatchPaths(): string[] {
 
     for (const profileRoot of getWindowsProfileRoots(getConfig().windowsProfileRoots)) {
         paths.push(
-            path.join(
-                profileRoot,
-                'AppData',
-                'Roaming',
-                'Code',
-                'User',
-                'workspaceStorage',
-            ),
+            path.join(profileRoot, 'AppData', 'Roaming', 'Code', 'User', 'workspaceStorage'),
         );
         paths.push(
             path.join(
@@ -214,6 +224,9 @@ async function handleFileEvent(filePath: string, event: 'change' | 'create'): Pr
     if (!isSessionFile(filePath)) return;
 
     const config = getConfig();
+    if (!config.enabled || config.sources[determineSourceKind(filePath)]?.enabled === false) {
+        return;
+    }
     const eventKey = filePath.endsWith('session-store.db-wal')
         ? filePath.slice(0, -'-wal'.length)
         : filePath;
@@ -255,9 +268,7 @@ async function handleFileEvent(filePath: string, event: 'change' | 'create'): Pr
                 if (summary.messageCount === 0) return;
                 const provider = summary.modelProvider?.replace(/[^a-z0-9-]/g, '');
                 const sourceName =
-                    provider && provider !== 'copilot'
-                        ? `${provider}-vscode`
-                        : 'copilot-vscode';
+                    provider && provider !== 'copilot' ? `${provider}-vscode` : 'copilot-vscode';
                 if (sourceName === 'copilot-vscode') {
                     const userDir = path.dirname(
                         path.dirname(path.dirname(path.dirname(eventKey))),

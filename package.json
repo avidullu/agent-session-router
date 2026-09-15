@@ -2,7 +2,7 @@
     "name": "agent-session-router",
     "displayName": "Agent Session Router",
     "description": "Automatically archive your AI coding sessions. Discovers conversations from Copilot Chat, DeepSeek, Continue, Cline, and more — exports local Markdown files for the Agent Sessions archive.",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "publisher": "avidullu",
     "license": "MIT",
     "repository": {
@@ -86,6 +86,7 @@
                 },
                 "agentSessionRouter.outputDir": {
                     "type": "string",
+                    "scope": "machine-overridable",
                     "default": "",
                     "markdownDescription": "Output directory for rendered Markdown session files. Defaults to the Agent Sessions archive directory if empty. Use the **Agent Session Router: Set Output Directory** command to choose a folder interactively.",
                     "editPresentation": "multilineText"
@@ -123,6 +124,7 @@
                 },
                 "agentSessionRouter.windowsProfileRoots": {
                     "type": "array",
+                    "scope": "machine-overridable",
                     "items": {
                         "type": "string"
                     },
@@ -143,7 +145,7 @@
         "watch": "tsc -watch -p ./",
         "lint": "eslint src --ext ts",
         "pretest": "npm run compile",
-        "test": "node test/contract-conformance.js && node test/router-index-test.js && node test/router-export-outcomes.js && node test/copilot-session-store-test.js && node test/vscode-chat-session-test.js && node test/coverage-suite.js && node test/smoke-test.js",
+        "test": "node test/contract-conformance.js && node test/router-index-test.js && node test/router-export-outcomes.js && node test/copilot-session-store-test.js && node test/vscode-chat-session-test.js && node test/collection-settings-test.js && node test/coverage-suite.js && node test/smoke-test.js",
         "lint:check": "eslint src --ext ts",
         "format": "prettier --write src/**/*.ts",
         "format:check": "prettier --check src/**/*.ts",

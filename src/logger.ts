@@ -78,10 +78,9 @@ export function initLogger(diagnosticsDir: string): void {
     _diagnosticsDir = diagnosticsDir;
     _diagnosticsPath = path.join(diagnosticsDir, '.router', 'diagnostics.jsonl');
     if (vscodeApi) {
-        _outputChannel = vscodeApi.window.createOutputChannel('Agent Session Router', {
+        _outputChannel ??= vscodeApi.window.createOutputChannel('Agent Session Router', {
             log: true,
         });
-        _outputChannel.show(true);
     }
     ensureDiagnosticsDir();
 }
