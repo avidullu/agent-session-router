@@ -142,6 +142,29 @@ function makeSession(tmpDir, name, sourceKind) {
             assert.notStrictEqual(first.record.digest, second.record.digest);
         });
 
+        await test('changing archive directories cannot reuse the old output', async () => {
+            router.resetExportCache();
+            const session = makeSession(tmpDir, 'relocated', 'coverage_success');
+            await router.exportSession(session, outputDir);
+            const relocated = path.join(tmpDir, 'new-output');
+            const record = await router.exportSession(session, relocated);
+            assert.ok(record.markdownPath.startsWith(relocated + path.sep));
+            assert.ok(fs.existsSync(record.markdownPath));
+        });
+
+        await test('health retains failed export until a successful retry is catalogued', async () => {
+            const { collectionHealth } = require('../out/health');
+            const config = { enabled: true, sources: {}, watch: { enabled: false } };
+            const local = path.join(tmpDir, 'health-retry');
+            const session = makeSession(tmpDir, 'retry', 'coverage_throw');
+            await router.exportSession(session, local);
+            assert.equal(collectionHealth(local, config, false, []).unresolvedErrorsThisActivation.length, 1);
+            registerExtractor('coverage_throw', () => ({ metadata: {}, messages: [{ role: 'assistant', text: 'recovered' }] }));
+            await router.exportSession(session, local);
+            assert.equal(collectionHealth(local, config, false, []).unresolvedErrorsThisActivation.length, 0);
+            registerExtractor('coverage_throw', () => { throw new Error('boom'); });
+        });
+
         await test('multi-session stores use independent cache identities', async () => {
             router.resetExportCache();
             const firstSession = makeSession(tmpDir, 'shared-store', 'coverage_multistore');

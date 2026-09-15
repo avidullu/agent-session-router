@@ -241,8 +241,34 @@ Output panel reports why the SQLite store was skipped.
 2. Run **Agent Session Router: Export All Sessions** once.
 3. Run **Agent Session Router: Auto-Export — Monitor for New Sessions**. The
    command starts collection immediately and persists the setting for future VS Code sessions.
-4. In the Agent Sessions repository, run `agent-sessions export` followed by
-   `agent-sessions status` whenever you want to refresh and inspect the catalog.
+4. In your hub workspace, run `agent-archive export --all` followed by
+   `agent-archive status` whenever you want to refresh and inspect the catalog.
+   Hub status reads routed sessions directly; another export is not required to see them.
+
+### Connect the hub and inspect collection
+
+With **agent-session-hub 0.3.0+**, install the hub with `pip install agent-session-hub`,
+create a private workspace, and run `agent-archive init` there. Select the exact
+directory it prints using **Agent Session Router: Set Output Directory**.
+For an existing router folder, initialize its parent:
+`agent-archive --repo-root /path/to init --archive-dir archive`.
+The router folder must be a direct child of the hub workspace. If 0.3.0 is not
+published yet, use the hub's source-checkout setup; 0.2.0 has no `init` command.
+
+**Agent Session Router: Collection Status** opens a read-only report with the
+resolved output folder, actual watcher state, enabled/disabled sources, indexed
+session and message counts, local Markdown bytes, last recorded successful export,
+and collection errors. It does not run Python, read transcript bodies, or upload data.
+Legacy records show an unknown export time; source modification time is not export time.
+The report counts router-owned sessions, not CLI sessions collected separately by the hub.
+
+**Agent Session Router: Open Archive** opens the output folder in a new VS Code
+window, leaving your current project open. If status says `no_sessions`, check the
+folder matches the hub's `archive_dir`, then export one conversation. `manual_only`
+means Auto-Export is off (the default); enable it explicitly if desired. If watching
+was requested but is `not_running`, check source directories and restart Auto-Export.
+Counts from a damaged index are marked incomplete. Error history covers this activation,
+not previous VS Code launches; index counts and recorded export times survive reloads.
 
 The watcher updates `.router-index.jsonl` as it exports, so watched and manually
 selected sessions enter the same hub-ingestion path as a full export.

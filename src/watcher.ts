@@ -12,6 +12,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { getConfig } from './config';
 import { exportSession, resolveOutputDir } from './router';
+import { clearCollectionIssue, recordCollectionIssue } from './health';
 import { fileStat } from './utils';
 import { logWatcherEvent } from './logger';
 import { listCopilotStoreSessions } from './copilot-session-store';
@@ -359,6 +360,11 @@ export async function startWatcher(): Promise<void> {
 
     const watchPaths = getWatchPaths();
     if (watchPaths.length === 0) {
+        recordCollectionIssue(
+            resolveOutputDir(getConfig()),
+            'watcher',
+            'No watchable directories found. Open an agent conversation, check source settings, then restart Auto-Export.',
+        );
         vscode.window.showWarningMessage('Agent Session Router: No watchable directories found.');
         return;
     }
@@ -387,6 +393,11 @@ export async function startWatcher(): Promise<void> {
         activeWatcher.on('add', (fp: string) => handleFileEvent(fp, 'create'));
         activeWatcher.on('change', (fp: string) => handleFileEvent(fp, 'change'));
         activeWatcher.on('error', (error: Error) => {
+            recordCollectionIssue(
+                resolveOutputDir(getConfig()),
+                'watcher',
+                'Watcher error. Check directory access and restart Auto-Export.',
+            );
             logWatcherEvent('error', undefined, { error: error.message });
         });
 
@@ -418,6 +429,7 @@ export async function startWatcher(): Promise<void> {
     }
 
     state.isRunning = true;
+    clearCollectionIssue(resolveOutputDir(getConfig()), 'watcher');
 }
 
 export async function stopWatcher(): Promise<void> {
