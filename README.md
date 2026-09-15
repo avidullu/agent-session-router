@@ -18,7 +18,19 @@ and more — exports them as searchable Markdown files into your
 > [marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router](https://marketplace.visualstudio.com/items?itemName=avidullu.agent-session-router).
 > Native Z.ai chat support, 8+ agent sources, cross-platform CI (Windows/macOS/Linux).
 
-### New in 0.2.1: reliable automatic collection
+### New in 0.2.2: see what is being collected
+
+**Collection Status** shows the archive folder, actual watcher state, enabled
+sources, session/message counts, missing artifacts, and recorded export times.
+**Open Archive** opens that folder in a new window without replacing your project.
+Changing archive directories no longer reuses another directory's export cache.
+
+Pair the router with [hub 0.3.0](https://pypi.org/project/agent-session-hub/0.3.0/)
+using `agent-archive init` in a private workspace. Collection remains local and
+auto-export remains opt-in. The Marketplace badge above shows the published
+version; source release preparation alone does not update installed extensions.
+
+### Included from 0.2.1: reliable automatic collection
 
 Archive paths are now machine-specific, so Settings Sync cannot copy a Windows path
 onto Linux or macOS. Existing invalid paths show a warning with a **Set Output Directory**
@@ -41,15 +53,16 @@ and click **Install**, or from a terminal:
 code --install-extension avidullu.agent-session-router
 ```
 
-Then run **Agent Session Router: Export All Sessions** from the Command Palette
-(`Ctrl+Shift+P`).
+Run **Agent Session Router: Set Output Directory** to choose your private archive,
+then **Export All Sessions** from the Command Palette (`Ctrl+Shift+P`). On 0.2.2,
+use **Collection Status** to check the result and **Open Archive** to read it.
 
 ### Option 2: Install from VSIX
 
 1. Download the latest `.vsix` from [Releases](https://github.com/avidullu/agent-session-router/releases)
 2. Install:
    ```bash
-   code --install-extension agent-session-router-0.2.1.vsix --force
+   code --install-extension agent-session-router-0.2.2.vsix --force
    ```
 3. **Reload VS Code** (`Ctrl+Shift+P` → "Developer: Reload Window")
 
@@ -76,17 +89,20 @@ installation** script. It handles everything and prints the exact next steps:
 ```bash
 # macOS / Linux / WSL
 chmod +x scripts/agentic-install.sh
-./scripts/agentic-install.sh --auto-watch --output-dir "$HOME/Projects/Agent Sessions/archive"
+./scripts/agentic-install.sh --output-dir "$HOME/Projects/Agent Sessions/archive"
 ```
 
 ```powershell
 # Windows PowerShell
-.\scripts\agentic-install.ps1 -AutoWatch -OutputDir "$env:USERPROFILE\Projects\Agent Sessions\archive"
+.\scripts\agentic-install.ps1 -OutputDir "$env:USERPROFILE\Projects\Agent Sessions\archive"
 ```
 
 The script will: verify Node.js ≥ 20, install dependencies, compile, run the
 test suite, package the `.vsix`, install into VS Code, and print the
 recommended settings.
+
+Ask before enabling automatic export. Add `--auto-watch` / `-AutoWatch` only when
+the owner explicitly wants it; do not silently enable it during installation.
 
 After the script completes, tell the user:
 
@@ -155,6 +171,8 @@ Open the Command Palette (`Ctrl+Shift+P`) and type "Agent Session Router":
 | Command                      | Description                                    |
 | ---------------------------- | ---------------------------------------------- |
 | **Discover Sessions**        | Scan and list all discoverable agent sessions  |
+| **Collection Status**        | Inspect watcher state, archive health and counts |
+| **Open Archive**             | Open the archive folder in a new VS Code window |
 | **Export All Sessions**      | Export all discovered sessions to Markdown     |
 | **Export Selected Session**  | Pick a specific session file to export         |
 | **Set Output Directory**     | Choose where to save exported session files    |
@@ -209,10 +227,11 @@ To a configurable directory (default: auto-detected `~/Projects/Agent Sessions/a
 Use the **Set Output Directory** command to change it. Files follow the Agent Sessions
 archive contract — they're ready to be indexed by the hub.
 
-In the Agent Sessions hub repo, rendered Markdown files are local-only by
-default. The router also writes `.router-index.jsonl`; the hub merges that
-sidecar into tracked metadata (`archive/index.jsonl` and `archive/INDEX.md`) on
-the next `python tools/agent_archive.py export --all`.
+Keep the archive in a private workspace, separate from the public product repo.
+The router also writes `.router-index.jsonl`; hub status reads it directly, and
+`agent-archive export --all` merges it into the local catalog
+(`archive/index.jsonl` and `archive/INDEX.md`). Catalog sync to a private remote
+is optional, not part of ordinary collection.
 
 ### Does it support Copilot's current `session-store.db`?
 
@@ -237,9 +256,9 @@ Output panel reports why the SQLite store was skipped.
 ### What is the recommended daily routine?
 
 1. Run **Agent Session Router: Set Output Directory** and select the Agent
-   Sessions repository's `archive` directory.
+   Sessions private workspace's `archive` directory.
 2. Run **Agent Session Router: Export All Sessions** once.
-3. Run **Agent Session Router: Auto-Export — Monitor for New Sessions**. The
+3. If you want automatic collection, run **Agent Session Router: Auto-Export — Monitor for New Sessions**. The
    command starts collection immediately and persists the setting for future VS Code sessions.
 4. In your hub workspace, run `agent-archive export --all` followed by
    `agent-archive status` whenever you want to refresh and inspect the catalog.
@@ -252,8 +271,8 @@ create a private workspace, and run `agent-archive init` there. Select the exact
 directory it prints using **Agent Session Router: Set Output Directory**.
 For an existing router folder, initialize its parent:
 `agent-archive --repo-root /path/to init --archive-dir archive`.
-The router folder must be a direct child of the hub workspace. If 0.3.0 is not
-published yet, use the hub's source-checkout setup; 0.2.0 has no `init` command.
+The router folder must be a direct child of the hub workspace. Hub 0.3.0 is
+published; upgrade older installations before using `init`.
 
 **Agent Session Router: Collection Status** opens a read-only report with the
 resolved output folder, actual watcher state, enabled/disabled sources, indexed
@@ -308,6 +327,10 @@ Both are Gemini-powered AI coding tools. The extension auto-detects which varian
 you use and handles both transparently. You don't need to configure anything.
 
 ### How do I update the extension?
+
+Marketplace users can update from VS Code's Extensions view (or let automatic
+extension updates run). Check the installed version there. A source clone is
+not required. For an intentional source build:
 
 ```bash
 git pull origin master

@@ -4,7 +4,8 @@ name: Publish
 # Requires secret: VSCE_PAT (Azure DevOps PAT with Marketplace → Manage scope).
 # Optional secret: OVSX_PAT (Open VSX token).
 #
-# Then push a version tag, for example: git tag v0.2.0 && git push origin v0.2.0
+# After owner merge and approval, push the matching version tag to GitHub.
+# Keep the same tag in Forgejo; only GitHub performs external publication.
 
 on:
   push:
@@ -16,6 +17,7 @@ permissions:
 
 jobs:
   publish:
+    if: github.server_url == 'https://github.com'
     name: Publish to Marketplaces
     runs-on: ${{ github.server_url == 'https://github.com' && 'ubuntu-latest' || 'ci-heavy' }}
     timeout-minutes: 10
@@ -38,11 +40,14 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Verify release tag matches package version
+        run: node scripts/check-release-tag.js
+
       - name: Compile
         run: npm run compile
 
       - name: Run tests
-        run: npm test
+        run: npm run ci:check
 
       - name: Publish to VS Code Marketplace
         if: success()
