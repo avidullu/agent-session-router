@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add Collection Status and Open Archive commands: watcher/source state, counts,
+  persisted successful export times, missing artifacts, and current-activation errors.
+- Keep export cache entries separate when changing output directories.
+- Correct the hub command to `agent-archive` and document the private router/hub setup.
+- No telemetry, default watcher enablement, hub installation, or release publication.
+
 ## 0.2.1 — 2026-09-15
 
 - Output directories and Windows profile roots are now machine-specific settings, preventing Settings Sync from copying them to another operating system.

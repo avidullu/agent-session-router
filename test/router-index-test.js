@@ -70,6 +70,7 @@ test('writes one contract-schema record per session', () => {
         size: 10,
         mtime: 2,
         messages: 3,
+        exported_at: 'x',
         markdown: 'archive/copilot-vscode/s1.md',
         metadata: { session_id: 's1' },
     });

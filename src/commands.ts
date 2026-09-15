@@ -15,7 +15,9 @@ import {
 import { getConfig } from './config';
 import { getOutputChannel } from './logger';
 import { createDiagnosticBundle } from './diagnostics';
-import { syncWatcher } from './watcher';
+import { syncWatcher, isWatcherRunning } from './watcher';
+import { collectionHealth } from './health';
+import { knownKinds } from './discoverers/index';
 import { normalizeOutputPath } from './output-path';
 import { DiscoveredSession } from './types';
 import { manualSessionCandidates } from './manual-session';
@@ -148,6 +150,43 @@ function validateOutputDir(dirPath: string): string | undefined {
 // ── Command registrations ────────────────────────────────────────────
 
 export function registerCommands(context: vscode.ExtensionContext): void {
+    context.subscriptions.push(
+        vscode.commands.registerCommand('agentSessionRouter.collectionStatus', async () => {
+            try {
+                const config = getConfig();
+                const report = collectionHealth(
+                    resolveOutputDir(config),
+                    config,
+                    isWatcherRunning(),
+                    knownKinds(),
+                );
+                const document = await vscode.workspace.openTextDocument({
+                    content: `Agent Session Router — Collection Status\n\n${JSON.stringify(report, null, 2)}\n\nNext actions: Set Output Directory / Auto-Export — Monitor for New Sessions / Export All Sessions / Open Archive.\n`,
+                    language: 'plaintext',
+                });
+                await vscode.window.showTextDocument(document, { preview: true });
+            } catch {
+                void vscode.window.showWarningMessage(
+                    'Collection status unavailable. Check the output path with Set Output Directory.',
+                );
+            }
+        }),
+        vscode.commands.registerCommand('agentSessionRouter.openArchive', async () => {
+            try {
+                const outputDir = resolveOutputDir(getConfig());
+                if (!fs.statSync(outputDir).isDirectory()) throw new Error('not a directory');
+                await vscode.commands.executeCommand(
+                    'vscode.openFolder',
+                    vscode.Uri.file(outputDir),
+                    true,
+                );
+            } catch {
+                void vscode.window.showWarningMessage(
+                    'Archive directory unavailable. Set Output Directory, then export a session.',
+                );
+            }
+        }),
+    );
     const channel = getOutputChannel();
 
     // Discover sessions

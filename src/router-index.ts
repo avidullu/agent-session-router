@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ExportRecord } from './types';
 import { buildRouterIndexRecord, indexIdentityKey } from './contract';
+import { clearCollectionIssue, recordCollectionIssue } from './health';
 
 /**
  * Write/merge records into `{outputDir}/.router-index.jsonl`.
@@ -44,8 +45,8 @@ export function writeRouterIndex(outputDir: string, records: ExportRecord[]): vo
     }
 
     for (const r of records) {
-        upsert(
-            buildRouterIndexRecord({
+        upsert({
+            ...buildRouterIndexRecord({
                 sourceName: r.sourceName,
                 sourceKind: r.sourceKind,
                 sourceFilePath: r.filePath,
@@ -56,10 +57,23 @@ export function writeRouterIndex(outputDir: string, records: ExportRecord[]): vo
                 markdownRel: r.markdownRel,
                 metadata: r.metadata,
             }),
-        );
+            exported_at: r.exportedAt,
+        });
     }
 
     const text = order.map((k) => JSON.stringify(byKey.get(k))).join('\n');
-    fs.mkdirSync(path.dirname(indexPath), { recursive: true });
-    fs.writeFileSync(indexPath, order.length > 0 ? `${text}\n` : '', 'utf-8');
+    try {
+        fs.mkdirSync(path.dirname(indexPath), { recursive: true });
+        fs.writeFileSync(indexPath, order.length > 0 ? `${text}\n` : '', 'utf-8');
+        clearCollectionIssue(outputDir, 'index');
+        for (const record of records)
+            clearCollectionIssue(outputDir, `${record.filePath}\u0000${record.sessionId}`);
+    } catch (err) {
+        recordCollectionIssue(
+            outputDir,
+            'index',
+            'Catalog write failed; check output directory permissions and retry export.',
+        );
+        throw err;
+    }
 }

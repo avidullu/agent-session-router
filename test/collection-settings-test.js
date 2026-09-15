@@ -26,17 +26,22 @@ async function main() {
     const warnings = [];
     const callbacks = [];
     const commands = new Map();
+    const documents = [];
+    const folderOpens = [];
     let closed = 0;
     let shown = 0;
     const channel = { appendLine() {}, clear() {}, show() { shown++; } };
     const vscode = {
         ConfigurationTarget: { Global: 1 },
+        Uri: { file: fsPath => ({ fsPath }) },
         window: {
             createOutputChannel: () => channel,
             showInformationMessage: async () => undefined,
             showWarningMessage: async (message) => { warnings.push(message); },
+            showTextDocument: async document => { documents.push(document.content); },
         },
         workspace: {
+            openTextDocument: async document => document,
             getConfiguration: () => ({
                 get: (key, fallback) => settings[key] ?? fallback,
                 update: async (key, value) => { settings[key] = value; changed(key); },
@@ -45,7 +50,7 @@ async function main() {
         },
         commands: {
             registerCommand: (name, callback) => { commands.set(name, callback); return { dispose() {} }; },
-            executeCommand: async (name) => commands.get(name)?.(),
+            executeCommand: async (name, ...args) => name === 'vscode.openFolder' ? folderOpens.push(args) : commands.get(name)?.(),
         },
     };
     function changed(key) {
@@ -91,6 +96,13 @@ async function main() {
         const output = fs.readdirSync(archiveDir).find(name => name.endsWith('.md'));
         assert.ok(fs.readFileSync(path.join(archiveDir, output), 'utf8').includes('A visible answer'));
         assert.ok(fs.existsSync(path.join(settings.outputDir, '.router-index.jsonl')));
+        await commands.get('agentSessionRouter.collectionStatus')();
+        assert.ok(documents.at(-1).includes('"watcherState": "watching"'));
+        assert.ok(documents.at(-1).includes('"knownMessages": 2'));
+        assert.ok(!documents.at(-1).includes('A visible answer'), 'health does not expose transcript bodies');
+        await commands.get('agentSessionRouter.openArchive')();
+        assert.equal(folderOpens.at(-1)[0].fsPath, settings.outputDir);
+        assert.equal(folderOpens.at(-1)[1], true, 'archive opens separately from the active project');
 
         await commands.get('agentSessionRouter.watchStop')();
         assert.equal(watcher.isWatcherRunning(), false);
@@ -101,6 +113,10 @@ async function main() {
         assert.equal(watcher.isWatcherRunning(), false, 'foreign paths block exports');
         assert.ok(warnings.some(message => message.includes('absolute path')));
         assert.ok(commands.has('agentSessionRouter.setOutputDir'), 'repair command stays available');
+        await commands.get('agentSessionRouter.collectionStatus')();
+        assert.ok(warnings.some(message => message.includes('Collection status unavailable')));
+        await commands.get('agentSessionRouter.openArchive')();
+        assert.ok(warnings.some(message => message.includes('Archive directory unavailable')));
 
         settings.outputDir = path.join(root, 'repaired');
         changed('outputDir');

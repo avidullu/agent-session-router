@@ -19,6 +19,7 @@ import { archiveStem, isoSecondsUtc, repoRelativeMarkdown } from './contract';
 import { writeRouterIndex } from './router-index';
 import { getConfig, Config } from './config';
 import { normalizeOutputPath } from './output-path';
+import { recordCollectionIssue } from './health';
 import {
     logDiscover,
     logExtractStart,
@@ -142,6 +143,30 @@ export async function exportSessionWithOutcome(
     session: DiscoveredSession,
     outputDir: string,
 ): Promise<ExportOutcome> {
+    try {
+        const outcome = await exportSessionAttempt(session, outputDir);
+        if (outcome.status === 'failed') {
+            recordCollectionIssue(
+                outputDir,
+                `${session.filePath}\u0000${session.sessionId}`,
+                `${session.sourceKind}: export failed. Retry export; inspect the Output channel for details.`,
+            );
+        }
+        return outcome;
+    } catch (err) {
+        recordCollectionIssue(
+            outputDir,
+            `${session.filePath}\u0000${session.sessionId}`,
+            `${session.sourceKind}: export failed before catalog update. Check source and output access.`,
+        );
+        throw err;
+    }
+}
+
+async function exportSessionAttempt(
+    session: DiscoveredSession,
+    outputDir: string,
+): Promise<ExportOutcome> {
     const extractor = getExtractor(session.sourceKind);
     if (!extractor) {
         logSkip(
@@ -154,7 +179,7 @@ export async function exportSessionWithOutcome(
     }
 
     // Check cache for unchanged files
-    const cacheKey = exportCacheKey(session);
+    const cacheKey = `${outputDir}\u0000${exportCacheKey(session)}`;
     const cached = exportCache.get(cacheKey) ?? null;
     if (cached && session.sourceRevision && cached.sourceRevision === session.sourceRevision) {
         logSkip(
